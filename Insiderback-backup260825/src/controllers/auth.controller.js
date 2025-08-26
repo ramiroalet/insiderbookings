@@ -207,9 +207,26 @@ export const registerUser = async (req, res) => {
       email,
       password_hash: hash,
     });
+    // generate verification token valid for 1 day
+    const verifyToken = jwt.sign(
+      { id: user.id, type: "user", action: "verify-email" },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" },
+    );
 
-    const token = signToken({ id: user.id, type: "user", role: user.role });
-    return res.status(201).json({ token, user });
+    const link = `${process.env.API_URL || process.env.CLIENT_URL}/auth/verify-email/${verifyToken}`;
+
+    try {
+      await transporter.sendMail({
+        to: email,
+        subject: "Verifica tu correo",
+        html: `<p>Hola ${name.split(" ")[0]}, haz clic <a href="${link}">aquí</a> para verificar tu cuenta.</p>` ,
+      });
+    } catch (mailErr) {
+      console.error(mailErr);
+    }
+
+    return res.status(201).json({ message: "Usuario registrado. Verifique su correo." });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Server error" });
@@ -229,6 +246,10 @@ export const loginUser = async (req, res) => {
     /* 2 ▸ Comparar contraseña (usa la columna correcta password_hash) */
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: "Invalid credentials" });
+
+    if (!user.email_verified) {
+      return res.status(403).json({ error: "Verifique su correo" });
+    }
 
     /* 3 ▸ Emitir JWT */
     const token = signToken({ id: user.id, type: "user", role: user.role });
@@ -258,6 +279,29 @@ export const validateToken = (req, res) => {
       valid: false,
       error: "Token expired or invalid",
     });
+  }
+};
+
+/* ────────────────────────────────────────────────────────────────
+   VERIFY EMAIL
+   ──────────────────────────────────────────────────────────────── */
+export const verifyEmail = async (req, res) => {
+  const { token } = req.params;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.action !== "verify-email") {
+      return res.status(400).json({ error: "Invalid token" });
+    }
+
+    const user = await models.User.findByPk(decoded.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    await user.update({ email_verified: true });
+
+    return res.json({ message: "Email verified" });
+  } catch (err) {
+    console.error(err);
+    return res.status(400).json({ error: "Token expired or invalid" });
   }
 };
 
