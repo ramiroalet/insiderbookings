@@ -80,7 +80,7 @@ const PaymentForm = ({
   onPaymentError,
   amount,
   currency,
-  searchOptionRefId,
+  rateKey,
   guestInfo,
   bookingData,
   isProcessing,
@@ -105,7 +105,7 @@ const PaymentForm = ({
         body: JSON.stringify({
           amount: Number(amount),
           currency,
-          searchOptionRefId,     // TGX lo usa; PARTNER lo ignora
+          rateKey, // TGX lo usa; PARTNER lo ignora
           guestInfo,
           bookingData,
           discount: discount || bookingData?.discount || null,
@@ -219,7 +219,7 @@ const PaymentForm = ({
 const GuaranteeForm = ({
   onSuccess,
   onError,
-  searchOptionRefId,
+  rateKey,
   guestInfo,
   bookingData,
   discount,
@@ -247,7 +247,7 @@ const GuaranteeForm = ({
 
   const submit = async (e) => {
     e.preventDefault()
-    if (!searchOptionRefId) return onError("Missing searchOptionRefId")
+    if (!rateKey) return onError("Missing rateKey")
 
     if (!form.number || !form.cvc || !form.month || !form.year) {
       return onError("Please complete card details.")
@@ -260,7 +260,7 @@ const GuaranteeForm = ({
     setIsProcessing(true)
     try {
       const payload = {
-        searchOptionRefId,
+        rateKey,
         guestInfo,
         bookingData: {
           ...bookingData,
@@ -486,7 +486,7 @@ const Checkout = () => {
       totalNights,
       quoteStatus,
       hasRateKey: selectedRoom?.rateKey,
-      searchOptionRefId,
+      rateKey: searchOptionRefId,
       quoteOptionRefId,
       paymentType: selectedRoom?.paymentType,
       discount,
@@ -602,9 +602,9 @@ const Checkout = () => {
   }
 
   const handleProceedToPayment = () => {
-    // En TGX, necesitamos el optionRefId de la SEARCH
+    // En TGX, necesitamos el rateKey de la SEARCH
     if (source === "TGX" && !searchOptionRefId) {
-      alert("Search optionRefId not available. Please try again.")
+      alert("Rate key not available. Please try again.")
       return
     }
     setCurrentStep("payment")
@@ -1211,7 +1211,7 @@ const Checkout = () => {
                         onPaymentError={handlePaymentError}
                         amount={getFinalTotalAmount()}
                         currency={getCurrency()}
-                        searchOptionRefId={searchOptionRefId} // TGX lo usa; PARTNER lo ignora
+                        rateKey={searchOptionRefId} // TGX usa rateKey; PARTNER lo ignora
                         guestInfo={guestForm}
                         bookingData={{
                           ...paymentBookingData,
@@ -1229,7 +1229,7 @@ const Checkout = () => {
                       <GuaranteeForm
                         onSuccess={handlePaymentSuccess}
                         onError={setPaymentError}
-                        searchOptionRefId={searchOptionRefId}
+                        rateKey={searchOptionRefId}
                         guestInfo={guestForm}
                         bookingData={paymentBookingData}
                         discount={paymentBookingData.discount}
