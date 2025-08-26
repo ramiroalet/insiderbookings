@@ -19,7 +19,7 @@ import axios from "axios"
 /* ────────────────────────────────────────────────────────────
  * 1. Axios instance
  * ──────────────────────────────────────────────────────────── */
-const api = axios.create({
+export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:3000/api",
   timeout: 8000,
 })
@@ -88,12 +88,104 @@ export const createBookingData = async (bookingPayload) => {
   return data   // Objeto Booking completo devuelto por la BD
 }
 
- 
-  export const confirmPaymentData = async ({ bookingId, ...payload }) => {
-   const { data } = await api.post("/payments/confirm", {
-     bookingId,
-     ...payload,
-   })
-   return data
- }
+export const confirmPaymentData = async ({ bookingId, ...payload }) => {
+  const { data } = await api.post("/payments/confirm", {
+    bookingId,
+    ...payload,
+  })
+  return data
+}
+
+/* ────────────────────────────────────────────────────────────
+ * 6.  Add-ons helpers
+ * ──────────────────────────────────────────────────────────── */
+export const getLatestBooking = async (token) => {
+  const { data } = await api.get("/bookings/me", {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    params: { latest: true, ts: Date.now() },
+  })
+  return data && Object.keys(data).length ? data : null
+}
+
+export const getBookingById = async (bookingId, token) => {
+  const { data } = await api.get(`/bookings/${bookingId}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  return data
+}
+
+export const getHotelRooms = async (hotelId, token) => {
+  const { data } = await api.get(`/hotels/${hotelId}/rooms/`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  return data
+}
+
+export const getHotelAddons = async (hotelId) => {
+  const { data } = await api.get(`/addons/${hotelId}/hotel-addons`, {
+    params: { withOptions: true },
+  })
+  return data
+}
+
+export const validateUpsellCode = async (payload, token) => {
+  const { data } = await api.post("/upsell-code/validate", payload, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  return data
+}
+
+export const markAddonReady = async (bookingAddOnId, token) => {
+  const { data } = await api.put(
+    `/addons/bookings/ready/${bookingAddOnId}`,
+    {},
+    { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+  )
+  return data
+}
+
+export const createOutsideAddonsSession = async (payload, token) => {
+  const { data } = await api.post(
+    "/payments/outside-addons/create-session",
+    payload,
+    { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+  )
+  return data
+}
+
+export const createUpsellSession = async (payload, token) => {
+  const { data } = await api.post("/payments/upsell/create-session", payload, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  return data
+}
+
+export const requestAddon = async (payload, token) => {
+  const { data } = await api.post("/addons/request", payload, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  return data
+}
+
+/* ────────────────────────────────────────────────────────────
+ * 7.  Booking helpers
+ * ──────────────────────────────────────────────────────────── */
+export const cancelBooking = async (bookingId, token) => {
+  const { data } = await api.put(
+    `/bookings/${bookingId}/cancel`,
+    {},
+    { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+  )
+  return data
+}
+
+export const cancelTGXBooking = async (bookingID, token) => {
+  const { data } = await api.post(
+    "/tgx/cancel",
+    { bookingID },
+    { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+  )
+  return data
+}
+
  
