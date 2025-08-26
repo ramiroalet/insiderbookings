@@ -542,7 +542,7 @@ export const googleExchange = async (req, res) => {
     }
 
     // 4) Emitir JWT (mismo formato que login local)
-    const token = signToken({ id: user.id, type: "user" });
+    const token = signToken({ id: user.id, type: "user", role: user.role });
 
     return res.json({
       token,

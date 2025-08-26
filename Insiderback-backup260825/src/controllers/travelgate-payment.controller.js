@@ -89,11 +89,12 @@ async function ensureTGXHotel(tgxHotelCode, snapshot = {}, tx) {
 /* ───────────────── Markup helpers ───────────────── */
 // Ajustá según negocio (mismos valores que en search)
 const ROLE_MARKUP = {
-  1: 0.50,
-  2: 0.10,
-  3: 0.10,
-  4: 0.05,
-  99: 0.00,
+  0: 0.50, //guest
+  1: 0.20, // staff
+  2: 0.10, // influencer
+  3: 0.10, // corporate
+  4: 0.05, // agency
+  100: 0.00, //admin
 }
 
 const moneyRound = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100
