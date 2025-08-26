@@ -80,7 +80,7 @@ const PaymentForm = ({
   onPaymentError,
   amount,
   currency,
-  optionRefId,
+  searchOptionRefId,
   guestInfo,
   bookingData,
   isProcessing,
@@ -105,7 +105,7 @@ const PaymentForm = ({
         body: JSON.stringify({
           amount: Number(amount),
           currency,
-          optionRefId,           // TGX lo usa; PARTNER lo ignora
+          searchOptionRefId,     // TGX lo usa; PARTNER lo ignora
           guestInfo,
           bookingData,
           discount: discount || bookingData?.discount || null,
@@ -219,7 +219,7 @@ const PaymentForm = ({
 const GuaranteeForm = ({
   onSuccess,
   onError,
-  optionRefId,
+  searchOptionRefId,
   guestInfo,
   bookingData,
   discount,
@@ -247,7 +247,7 @@ const GuaranteeForm = ({
 
   const submit = async (e) => {
     e.preventDefault()
-    if (!optionRefId) return onError("Missing optionRefId")
+    if (!searchOptionRefId) return onError("Missing searchOptionRefId")
 
     if (!form.number || !form.cvc || !form.month || !form.year) {
       return onError("Please complete card details.")
@@ -260,7 +260,7 @@ const GuaranteeForm = ({
     setIsProcessing(true)
     try {
       const payload = {
-        optionRefId,
+        searchOptionRefId,
         guestInfo,
         bookingData: {
           ...bookingData,
@@ -452,6 +452,8 @@ const Checkout = () => {
     quoteStatus,
     quoteError,
     quoteData,
+    searchOptionRefId,
+    quoteOptionRefId,
     currency,
   } = useSelector((s) => s.booking)
 
@@ -484,11 +486,25 @@ const Checkout = () => {
       totalNights,
       quoteStatus,
       hasRateKey: selectedRoom?.rateKey,
-      optionRefId: quoteData?.optionRefId,
+      searchOptionRefId,
+      quoteOptionRefId,
       paymentType: selectedRoom?.paymentType,
       discount,
     })
-  }, [selectedRoom, selectedHotel, source, tgxHotel, checkIn, checkOut, totalNights, quoteStatus, quoteData, discount])
+  }, [
+    selectedRoom,
+    selectedHotel,
+    source,
+    tgxHotel,
+    checkIn,
+    checkOut,
+    totalNights,
+    quoteStatus,
+    quoteData,
+    searchOptionRefId,
+    quoteOptionRefId,
+    discount,
+  ])
 
   // Redirect if no selection
   useEffect(() => {
@@ -578,17 +594,17 @@ const Checkout = () => {
 
     setCurrentStep("quote")
     try {
-      console.log("🔍 Starting Quote with rateKey:", selectedRoom.rateKey)
-      await dispatch(quoteTravelgateRoom({ rateKey: selectedRoom.rateKey }))
+      console.log("🔍 Starting Quote with searchOptionRefId:", searchOptionRefId)
+      await dispatch(quoteTravelgateRoom({ searchOptionRefId }))
     } catch (error) {
       console.error("❌ Quote failed:", error)
     }
   }
 
   const handleProceedToPayment = () => {
-    // En TGX, requiere optionRefId desde quote
-    if (source === "TGX" && !quoteData?.optionRefId) {
-      alert("Quote data not available. Please try again.")
+    // En TGX, necesitamos el optionRefId de la SEARCH
+    if (source === "TGX" && !searchOptionRefId) {
+      alert("Search optionRefId not available. Please try again.")
       return
     }
     setCurrentStep("payment")
@@ -1195,7 +1211,7 @@ const Checkout = () => {
                         onPaymentError={handlePaymentError}
                         amount={getFinalTotalAmount()}
                         currency={getCurrency()}
-                        optionRefId={quoteData?.optionRefId} // TGX lo usa; PARTNER lo ignora
+                        searchOptionRefId={searchOptionRefId} // TGX lo usa; PARTNER lo ignora
                         guestInfo={guestForm}
                         bookingData={{
                           ...paymentBookingData,
@@ -1213,7 +1229,7 @@ const Checkout = () => {
                       <GuaranteeForm
                         onSuccess={handlePaymentSuccess}
                         onError={setPaymentError}
-                        optionRefId={quoteData?.optionRefId}
+                        searchOptionRefId={searchOptionRefId}
                         guestInfo={guestForm}
                         bookingData={paymentBookingData}
                         discount={paymentBookingData.discount}

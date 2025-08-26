@@ -7,16 +7,21 @@ const API_URL = import.meta.env.VITE_API_URL
 /* ────────────────────────── */
 
 // TravelgateX Quote
+// Ahora recibimos el optionRefId de la SEARCH (searchOptionRefId)
+// y el backend espera que se envíe bajo la clave optionRefId.
 export const quoteTravelgateRoom = createAsyncThunk(
   "booking/quoteTravelgateRoom",
-  async ({ rateKey }, { rejectWithValue }) => {
+  async ({ searchOptionRefId }, { rejectWithValue }) => {
     try {
-      console.log("🔍 Calling TravelgateX Quote API with rateKey:", rateKey)
+      console.log(
+        "🔍 Calling TravelgateX Quote API with searchOptionRefId:",
+        searchOptionRefId,
+      )
 
       const response = await fetch(`${API_URL}/tgx/quote`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rateKey }),
+        body: JSON.stringify({ optionRefId: searchOptionRefId }),
       })
 
       if (!response.ok) {
@@ -26,7 +31,10 @@ export const quoteTravelgateRoom = createAsyncThunk(
 
       const data = await response.json()
       console.log("✅ Quote response:", data)
-      return data
+      return {
+        quote: data,
+        quoteOptionRefId: data?.optionRefId || null,
+      }
     } catch (err) {
       console.error("❌ Quote error:", err)
       return rejectWithValue(err.message)
@@ -225,6 +233,8 @@ const initialState = {
   currency: "EUR",
 
   /* TravelgateX specific states */
+  searchOptionRefId: null,      // optionRefId devuelto por la SEARCH
+  quoteOptionRefId: null,       // optionRefId devuelto por la QUOTE
   quoteStatus: "idle", // idle, loading, succeeded, failed
   quoteError: null,
   quoteData: null,
@@ -322,6 +332,10 @@ const bookingSlice = createSlice({
       // Room seleccionada (conservamos todo lo que venga)
       state.selectedRoom = room ? { ...room } : null
       state.roomId = room?.id ?? null
+      // optionRefId de la SEARCH (rateKey en nuestro mapeo)
+      state.searchOptionRefId = room?.optionRefId || room?.rateKey || null
+      // resetear info de quote previa
+      state.quoteOptionRefId = null
 
       // Normalizar hotel mostrado en checkout
       const normalizedHotel = hotel
@@ -473,8 +487,9 @@ const bookingSlice = createSlice({
       })
       .addCase(quoteTravelgateRoom.fulfilled, (s, a) => {
         s.quoteStatus = "succeeded"
-        s.quoteData = a.payload
-        console.log("✅ Quote data saved to Redux:", a.payload)
+        s.quoteData = a.payload.quote
+        s.quoteOptionRefId = a.payload.quoteOptionRefId
+        console.log("✅ Quote data saved to Redux:", a.payload.quote)
       })
       .addCase(quoteTravelgateRoom.rejected, (s, a) => {
         s.quoteStatus = "failed"
