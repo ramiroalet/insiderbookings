@@ -130,7 +130,7 @@ export const createTravelgatePaymentIntent = async (req, res) => {
     const {
       amount,
       currency = "EUR",
-      optionRefId,
+      searchOptionRefId,
       guestInfo = {},
       bookingData = {},
       user_id = null,
@@ -139,8 +139,8 @@ export const createTravelgatePaymentIntent = async (req, res) => {
       captureManual, // opcional desde FE
     } = req.body
 
-    if (!amount || !optionRefId || !guestInfo) {
-      return res.status(400).json({ error: "amount, optionRefId, and guestInfo are required" })
+    if (!amount || !searchOptionRefId || !guestInfo) {
+      return res.status(400).json({ error: "amount, searchOptionRefId, and guestInfo are required" })
     }
 
     const checkInDO  = toDateOnly(bookingData.checkIn)
@@ -172,10 +172,15 @@ export const createTravelgatePaymentIntent = async (req, res) => {
 
     let quote
     try {
-      quote = await quoteTGX(optionRefId, settings)
+      quote = await quoteTGX(searchOptionRefId, settings)
     } catch (e) {
       console.error("❌ Quote error:", e)
       return res.status(400).json({ error: "Could not verify price" })
+    }
+
+    const quoteOptionRefId = quote?.optionRefId
+    if (!quoteOptionRefId) {
+      return res.status(400).json({ error: "Invalid quote without optionRefId" })
     }
 
     const verifiedNet = moneyRound(Number(quote?.price?.net))
@@ -270,41 +275,42 @@ export const createTravelgatePaymentIntent = async (req, res) => {
       { transaction: tx }
     )
 
-    await TGXMeta.create(
-      {
-        booking_id: booking.id,
-        option_id: String(optionRefId),
-        access: bookingData.access ? String(bookingData.access) : null,
-        room_code: bookingData.roomCode ? String(bookingData.roomCode) : null,
-        board_code: bookingData.boardCode ? String(bookingData.boardCode) : null,
-        cancellation_policy: bookingData.cancellationPolicy || null,
-        token: bookingData.token || null,
-        meta: {
-          roomIdRaw,
-          tgxHotelCode,
-          hotelName: bookingData.hotelName || null,
-          location: bookingData.location || null,
-          paymentType: bookingData.paymentType || null
+      await TGXMeta.create(
+        {
+          booking_id: booking.id,
+          option_id: String(quoteOptionRefId),
+          access: bookingData.access ? String(bookingData.access) : null,
+          room_code: bookingData.roomCode ? String(bookingData.roomCode) : null,
+          board_code: bookingData.boardCode ? String(bookingData.boardCode) : null,
+          cancellation_policy: bookingData.cancellationPolicy || null,
+          token: bookingData.token || null,
+          meta: {
+            roomIdRaw,
+            tgxHotelCode,
+            hotelName: bookingData.hotelName || null,
+            location: bookingData.location || null,
+            paymentType: bookingData.paymentType || null,
+            searchOptionRefId,
+          },
         },
-      },
-      { transaction: tx }
-    )
+        { transaction: tx }
+      )
 
-    const metadata = {
-      type: "travelgate_booking",
-      bookingRef: booking_ref,
-      booking_id: String(booking.id),
-      tgxRefHash: sha32(optionRefId),
-      guestName: trim500(guestInfo.fullName),
-      guestEmail: trim500(guestInfo.email),
-      guestPhone: trim500(guestInfo.phone),
-      checkIn: trim500(checkInDO),
-      checkOut: trim500(checkOutDO),
-      hotelId: trim500(booking_hotel_id ?? ""),
-      tgxHotelId: trim500(booking_tgx_hotel_id ?? ""),
-      tgxHotelCode: trim500(tgxHotelCode ?? ""),
-      roomId: trim500(roomIdFK ?? roomIdRaw ?? ""),
-    }
+      const metadata = {
+        type: "travelgate_booking",
+        bookingRef: booking_ref,
+        booking_id: String(booking.id),
+        tgxRefHash: sha32(quoteOptionRefId),
+        guestName: trim500(guestInfo.fullName),
+        guestEmail: trim500(guestInfo.email),
+        guestPhone: trim500(guestInfo.phone),
+        checkIn: trim500(checkInDO),
+        checkOut: trim500(checkOutDO),
+        hotelId: trim500(booking_hotel_id ?? ""),
+        tgxHotelId: trim500(booking_tgx_hotel_id ?? ""),
+        tgxHotelCode: trim500(tgxHotelCode ?? ""),
+        roomId: trim500(roomIdFK ?? roomIdRaw ?? ""),
+      }
 
     const wantManualCapture =
       captureManual === true || String(process.env.STRIPE_CAPTURE_MANUAL || "").toLowerCase() === "true"
@@ -852,7 +858,7 @@ export const bookWithCard = async (req, res) => {
       { transaction: tx }
     )
 
-    await TGXMeta.create(
+    const tgxMeta = await TGXMeta.create(
       {
         booking_id: booking.id,
         option_id: String(optionRefId),
@@ -889,7 +895,7 @@ export const bookWithCard = async (req, res) => {
     ]
 
     const input = {
-      optionRefId,
+      optionRefId: tgxMeta.option_id,
       clientReference: booking.booking_ref,
       holder: { name: holderName, surname: holderSurname }, // email en remarks
       rooms: [{ occupancyRefId: 1, paxes }],
@@ -927,8 +933,8 @@ export const bookWithCard = async (req, res) => {
       auditTransactions: true,
     }
 
-    // ⚠️ Nunca loguees PAN/CVC
-    console.log("🎯 Creating TravelgateX booking (with card, guarantee). optionRefId:", optionRefId)
+      // ⚠️ Nunca loguees PAN/CVC
+      console.log("🎯 Creating TravelgateX booking (with card, guarantee). optionRefId:", tgxMeta.option_id)
 
     const tgxBooking = await bookTGX(input, settings)
 
