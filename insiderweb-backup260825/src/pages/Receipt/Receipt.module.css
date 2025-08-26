@@ -1,0 +1,220 @@
+.receiptPage {
+  padding: 1rem;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+@media (min-width: 640px) {
+  .receiptPage {
+    padding: 2rem;
+  }
+}
+
+.receiptContainer {
+  max-width: 800px;
+  width: 100%;
+}
+
+.successHeader {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.checkmarkCircle {
+  width: 64px;
+  height: 64px;
+  background-color: var(--success);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--white);
+  margin: 0 auto 1rem;
+}
+
+.successTitle {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text-color);
+}
+
+.successMessage {
+  color: var(--dark-gray);
+}
+
+.receiptCard {
+  background-color: var(--white);
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.receiptHeader {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.brandLogo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.logoText {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.receiptTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 1rem;
+}
+
+.receiptDetails {
+  margin-bottom: 2rem;
+}
+
+.detailRow {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--light-gray);
+  padding-bottom: 1rem;
+}
+
+@media (min-width: 640px) {
+  .detailRow {
+    flex-direction: row;
+  }
+}
+
+.detailItem {
+  flex: 1;
+  margin-bottom: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .detailItem {
+    margin-bottom: 0;
+  }
+}
+
+.detailLabel {
+  font-size: 0.875rem;
+  color: var(--dark-gray);
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.detailValue {
+  font-weight: 500;
+}
+
+.cancellationPolicy {
+  background-color: var(--light-gray);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  font-size: 0.875rem;
+}
+
+.paymentDetails {
+  margin-bottom: 2rem;
+}
+
+.paymentTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--primary-color);
+}
+
+.paymentRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.totalRow {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+  padding-top: 0.75rem;
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--medium-gray);
+}
+
+.paymentMethod {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--light-gray);
+}
+
+.signature {
+  text-align: center;
+  margin-top: 2rem;
+  font-size: 0.875rem;
+  color: var(--dark-gray);
+}
+
+.signatureImage {
+  margin-top: 1rem;
+  font-style: italic;
+  font-family: cursive;
+  font-size: 1.25rem;
+}
+
+.receiptActions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .receiptActions {
+    flex-direction: row;
+    justify-content: center;
+  }
+}
+
+.downloadButton,
+.homeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.downloadButton {
+  background-color: var(--white);
+  color: var(--text-color);
+  border: 1px solid var(--medium-gray);
+}
+
+.downloadButton:hover {
+  background-color: var(--light-gray);
+}
+
+.homeButton {
+  background-color: var(--primary-color);
+  color: var(--white);
+  border: none;
+}
+
+.homeButton:hover {
+  background-color: var(--primary-dark);
+}
