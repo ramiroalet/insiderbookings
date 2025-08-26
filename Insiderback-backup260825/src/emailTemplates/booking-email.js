@@ -1,12 +1,12 @@
 import { sendMail } from "../helpers/mailer.js"
 import { bufferCertificatePDF } from "../helpers/bookingCertificate.js"
+import { getBaseEmailTemplate } from "./base-template.js"
 import dayjs from "dayjs"
 
 export async function sendBookingEmail(booking, toEmail) {
   const pdfBuffer = await bufferCertificatePDF(booking)
 
-  const html = `
-  <div style="font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif">
+  const content = `
     <h2 style="margin:0 0 8px">Booking Confirmation</h2>
     <p style="margin:0 0 12px;color:#444">
       Hi ${booking.guestName || "Guest"}, your reservation is confirmed.
@@ -42,8 +42,9 @@ export async function sendBookingEmail(booking, toEmail) {
     <p style="margin:16px 0;color:#555">
       Attached you'll find your Booking Confirmation PDF. Please present it upon check-in.
     </p>
-  </div>
   `
+
+  const html = getBaseEmailTemplate(content, "Booking Confirmation")
 
   await sendMail({
     to: toEmail,

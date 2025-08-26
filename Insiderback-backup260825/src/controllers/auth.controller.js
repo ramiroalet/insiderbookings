@@ -8,6 +8,7 @@ import { sequelize } from "../models/index.js";
 import { random4 } from "../utils/random4.js";
 import transporter from "../services/transporter.js";
 import { OAuth2Client } from "google-auth-library"; // ← para Google Sign-In
+import { getBaseEmailTemplate } from "../emailTemplates/base-template.js";
 
 dotenv.config();
 
@@ -217,10 +218,26 @@ export const registerUser = async (req, res) => {
     const link = `${process.env.API_URL || process.env.CLIENT_URL}/auth/verify-email/${verifyToken}`;
 
     try {
+      const content = `
+        <p style="color:#4a5568;margin:0 0 16px;font-size:16px;">Hola ${name.split(" ")[0]},</p>
+        <p style="color:#4a5568;margin:0 0 24px;font-size:16px;">Haz clic en el botón para verificar tu cuenta.</p>
+        <table role="presentation" style="margin:16px 0;">
+          <tr>
+            <td align="center">
+              <a href="${link}"
+                 style="display:inline-block;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;">Verificar correo</a>
+            </td>
+          </tr>
+        </table>
+        <p style="color:#718096;margin:24px 0 0;font-size:14px;">Si no solicitaste esta cuenta, puedes ignorar este correo.</p>
+      `
+
+      const html = getBaseEmailTemplate(content, "Verifica tu correo")
+
       await transporter.sendMail({
         to: email,
         subject: "Verifica tu correo",
-        html: `<p>Hola ${name.split(" ")[0]}, haz clic <a href="${link}">aquí</a> para verificar tu cuenta.</p>` ,
+        html,
       });
     } catch (mailErr) {
       console.error(mailErr);
