@@ -4,7 +4,7 @@ import crypto from "crypto"
 import Stripe from "stripe"
 import { sendBookingEmail } from "../emailTemplates/booking-email.js"
 import models, { sequelize } from "../models/index.js"
-import { bookTGX } from "../services/tgx.booking.service.js"
+import { bookTGX, quoteTGX } from "../services/tgx.booking.service.js"
 
 dotenv.config()
 
@@ -86,6 +86,40 @@ async function ensureTGXHotel(tgxHotelCode, snapshot = {}, tx) {
   }
 }
 
+/* ───────────────── Markup helpers ───────────────── */
+// Ajustá según negocio (mismos valores que en search)
+const ROLE_MARKUP = {
+  1: 0.50,
+  2: 0.10,
+  3: 0.10,
+  4: 0.05,
+  99: 0.00,
+}
+
+const moneyRound = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100
+
+const getRoleFromReq = (req) => {
+  const sources = {
+    query: req.query?.user_role,
+    header: req.headers["x-user-role"],
+    userRole: req.user?.role,
+    userRoleId: req.user?.role_id,
+  }
+  const raw =
+    sources.query ??
+    sources.header ??
+    sources.userRole ??
+    sources.userRoleId
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : 1
+}
+
+const applyMarkup = (amount, pct) => {
+  const n = Number(amount)
+  if (!Number.isFinite(n)) return null
+  return moneyRound(n * (1 + pct))
+}
+
 /* ╔══════════════════════════════════════════════════════════════════════════╗
    ║  CREAR PAYMENT INTENT PARA TRAVELGATEX BOOKING                           ║
    ╚══════════════════════════════════════════════════════════════════════════╝ */
@@ -100,7 +134,6 @@ export const createTravelgatePaymentIntent = async (req, res) => {
       bookingData = {},
       user_id = null,
       discount_code_id = null,
-      net_cost = null,
       source = "TGX",
       captureManual, // opcional desde FE
     } = req.body
@@ -122,6 +155,44 @@ export const createTravelgatePaymentIntent = async (req, res) => {
     if (!checkInDO || !checkOutDO) {
       return res.status(400).json({ error: "bookingData.checkIn and bookingData.checkOut are required/valid" })
     }
+
+    // Verificar precio actual con quoteTGX y aplicar markup en servidor
+    const roleNum = getRoleFromReq(req)
+    const rolePct = Object.prototype.hasOwnProperty.call(ROLE_MARKUP, roleNum)
+      ? ROLE_MARKUP[roleNum]
+      : ROLE_MARKUP[1]
+
+    const settings = {
+      client: process.env.TGX_CLIENT,
+      context: process.env.TGX_CONTEXT,
+      timeout: 60000,
+      testMode: process.env.NODE_ENV !== "production",
+    }
+
+    let quote
+    try {
+      quote = await quoteTGX(optionRefId, settings)
+    } catch (e) {
+      console.error("❌ Quote error:", e)
+      return res.status(400).json({ error: "Could not verify price" })
+    }
+
+    const verifiedNet = moneyRound(Number(quote?.price?.net))
+    if (!Number.isFinite(verifiedNet)) {
+      return res.status(400).json({ error: "Invalid net price from supplier" })
+    }
+    const computedGross = applyMarkup(verifiedNet, rolePct)
+    const requestedAmount = moneyRound(Number(amount))
+    if (Math.abs(computedGross - requestedAmount) > 0.01) {
+      return res.status(400).json({
+        error: "Amount mismatch with current price",
+        expected: computedGross,
+        received: requestedAmount,
+      })
+    }
+
+    const finalAmount = computedGross
+    const finalNetCost = verifiedNet
 
     const isTGX = (source === "TGX" || bookingData.source === "TGX")
     let booking_hotel_id = null
@@ -172,8 +243,8 @@ export const createTravelgatePaymentIntent = async (req, res) => {
 
         status: "PENDING",
         payment_status: "UNPAID",
-        gross_price: Number(amount),
-        net_cost: net_cost != null ? Number(net_cost) : null,
+        gross_price: finalAmount,
+        net_cost: finalNetCost,
         currency: currency3,
 
         payment_provider: "STRIPE",
@@ -238,7 +309,7 @@ export const createTravelgatePaymentIntent = async (req, res) => {
       captureManual === true || String(process.env.STRIPE_CAPTURE_MANUAL || "").toLowerCase() === "true"
 
     const paymentIntentPayload = {
-      amount: Math.round(Number(amount) * 100),
+      amount: Math.round(finalAmount * 100),
       currency: currency3.toLowerCase(),
       automatic_payment_methods: { enabled: true },
       description: `Hotel ${tgxHotelCode || booking_hotel_id || "N/A"} ${checkInDO}→${checkOutDO}`,
@@ -262,7 +333,7 @@ export const createTravelgatePaymentIntent = async (req, res) => {
       bookingRef: booking_ref,
       bookingId: booking.id,
       currency: currency3,
-      amount: Number(amount),
+      amount: finalAmount,
       status: "PENDING_PAYMENT",
       captureManual: wantManualCapture,
     })
