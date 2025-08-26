@@ -594,8 +594,8 @@ const Checkout = () => {
 
     setCurrentStep("quote")
     try {
-      console.log("🔍 Starting Quote with searchOptionRefId:", searchOptionRefId)
-      await dispatch(quoteTravelgateRoom({ searchOptionRefId }))
+      console.log("🔍 Starting Quote with rateKey:", searchOptionRefId)
+      await dispatch(quoteTravelgateRoom({ rateKey: searchOptionRefId }))
     } catch (error) {
       console.error("❌ Quote failed:", error)
     }

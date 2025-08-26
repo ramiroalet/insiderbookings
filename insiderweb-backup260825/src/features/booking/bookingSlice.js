@@ -7,21 +7,17 @@ const API_URL = import.meta.env.VITE_API_URL
 /* ────────────────────────── */
 
 // TravelgateX Quote
-// Ahora recibimos el optionRefId de la SEARCH (searchOptionRefId)
-// y el backend espera que se envíe bajo la clave optionRefId.
+// Accepts the room's rateKey and forwards it to the backend.
 export const quoteTravelgateRoom = createAsyncThunk(
   "booking/quoteTravelgateRoom",
-  async ({ searchOptionRefId }, { rejectWithValue }) => {
+  async ({ rateKey }, { rejectWithValue }) => {
     try {
-      console.log(
-        "🔍 Calling TravelgateX Quote API with searchOptionRefId:",
-        searchOptionRefId,
-      )
+      console.log("🔍 Calling TravelgateX Quote API with rateKey:", rateKey)
 
       const response = await fetch(`${API_URL}/tgx/quote`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ optionRefId: searchOptionRefId }),
+        body: JSON.stringify({ rateKey }),
       })
 
       if (!response.ok) {
