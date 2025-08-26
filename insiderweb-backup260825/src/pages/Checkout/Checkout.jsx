@@ -1320,7 +1320,7 @@ const Checkout = () => {
 
             {/* Right Column - Price Summary */}
             <div className="lg:col-span-1">
-              <div className="sticky top-8">
+              <div className="lg:sticky lg:top-8">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                   {/* Hotel Info */}
                   <div className="flex items-start space-x-4 mb-6 pb-6 border-b border-gray-100">
