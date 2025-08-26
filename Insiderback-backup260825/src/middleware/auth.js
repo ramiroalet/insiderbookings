@@ -15,7 +15,7 @@ export const authenticate = (req, res, next) => {
   }
 }
 
-/** Autoriza por rol numérico (ej. 100=admin, 2=influencer, 3=corporate, 4=agency, 1=staff, 0=regular) */
+/** Autoriza por rol numérico (ej. 99=admin, 5=agency, 4=corporate, 3=influencer, 2=staff, 1=guest, 0=regular) */
 export const authorizeRoles = (...allowed) => (req, res, next) => {
   const role = Number(req.user?.role)
   if (!allowed.includes(role)) return res.status(403).json({ error: "Forbidden" })

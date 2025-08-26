@@ -117,7 +117,8 @@ export const search = async (req, res, next) => {
       2: 0.10, // staff → +20%
       3: 0.10, // influencer → +10%
       4: 0.05, // corporate → +10%
-   
+      5: 0.05, // agency   → +5%
+
       99: 0.00 // admin → +0%
     }
 

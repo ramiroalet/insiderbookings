@@ -4,9 +4,9 @@ import { createTenant, listTenants, updateTenant, deleteTenant } from "../contro
 
 const router = Router()
 
-router.get("/tenants", authenticate, authorizeRoles(100), listTenants)
-router.post("/tenants", authenticate, authorizeRoles(100), createTenant)
-router.put("/tenants/:id", authenticate, authorizeRoles(100), updateTenant)
-router.delete("/tenants/:id", authenticate, authorizeRoles(100), deleteTenant)
+router.get("/tenants", authenticate, authorizeRoles(99), listTenants)
+router.post("/tenants", authenticate, authorizeRoles(99), createTenant)
+router.put("/tenants/:id", authenticate, authorizeRoles(99), updateTenant)
+router.delete("/tenants/:id", authenticate, authorizeRoles(99), deleteTenant)
 
 export default router

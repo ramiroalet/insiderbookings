@@ -13,7 +13,7 @@ import { authenticate, authorizeRoles } from "../middleware/auth.js"
 const router = Router()
 
 /** ⚠️ TEMP: ruta pública (sin authenticate) */
-router.get("/me/influencer/stats",authenticate, authorizeRoles(2), getInfluencerStats)
+router.get("/me/influencer/stats",authenticate, authorizeRoles(3), getInfluencerStats)
 
 router.post("/request-info", requestPartnerInfo)
 
