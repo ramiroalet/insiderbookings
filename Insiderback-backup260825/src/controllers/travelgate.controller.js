@@ -12,6 +12,7 @@ import { fetchRoomsTGX, mapRooms, fetchAllRooms } from "../services/tgx.rooms.se
 import { fetchBoardsTGX, mapBoards, fetchAllBoards } from "../services/tgx.boards.service.js"
 import { fetchMetadataTGX, mapMetadata } from "../services/tgx.metadata.service.js"
 import models from "../models/index.js"
+import { getMarkup } from "../utils/markup.js"
 
 function parseOccupancies(raw = "1|0") {
   const [adultsStr = "1", kidsStr = "0"] = raw.split("|")
@@ -107,20 +108,6 @@ export const search = async (req, res, next) => {
       return res.status(400).json({ error: "Missing required params" })
     }
 
-    /* ──────────────────────────────────────────────
-       Markup por rol (definido en código)
-    ────────────────────────────────────────────── */
-    // Ajustá según negocio:
-    // 1: guest, 2: staff, 3: influencer, 4: corporate/partner, 5: agency, 99: admin
-    const ROLE_MARKUP = {
-      1: 0.50, // guest → +50%
-      2: 0.10, // staff → +20%
-      3: 0.10, // influencer → +10%
-      4: 0.05, // corporate → +10%
-   
-      99: 0.00 // admin → +0%
-    }
-
     const moneyRound = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100
 
     const getRoleFromReq = () => {
@@ -142,9 +129,6 @@ export const search = async (req, res, next) => {
     }
 
     const roleNum = getRoleFromReq()
-    const rolePct = Object.prototype.hasOwnProperty.call(ROLE_MARKUP, roleNum)
-      ? ROLE_MARKUP[roleNum]
-      : ROLE_MARKUP[1] // fallback guest
 
     const applyMarkup = (amount, pct) => {
       const n = Number(amount)
@@ -152,14 +136,15 @@ export const search = async (req, res, next) => {
       return moneyRound(n * (1 + pct))
     }
 
-    const decorateWithMarkup = (options, pct, roleNum) => {
+    const decorateWithMarkup = (options, roleNum) => {
       if (!Array.isArray(options)) return options
       return options.map((opt) => {
+        const pct = getMarkup(roleNum, opt.price)
         const priceUser = applyMarkup(opt.price, pct)
         const rooms = Array.isArray(opt.rooms)
           ? opt.rooms.map((r) => ({
               ...r,
-              priceUser: applyMarkup(r.price, pct),
+              priceUser: applyMarkup(r.price, getMarkup(roleNum, r.price)),
             }))
           : opt.rooms
 
@@ -167,18 +152,17 @@ export const search = async (req, res, next) => {
           ...opt,
           priceUser,
           rooms,
-          markup: { roleNum, pct }, // útil para debug en front
+          markup: { roleNum, pct },
         }
       })
     }
 
     /* ────────────────────────────────────────────── */
 
-    // clave de caché incluye rol y pct para no cruzar precios
+    // clave de caché incluye solo rol
     const cacheKey = `search:${JSON.stringify({
       q: req.query,
       roleNum,
-      rolePct,
     })}`
 
     // Debug de params clave (sin ensuciar logs con todo)
@@ -196,11 +180,11 @@ export const search = async (req, res, next) => {
       paymentMethod,
       certCase,
     })
-    console.log("[search][markup] using role:", roleNum, "pct:", rolePct)
+    console.log("[search][markup] using role:", roleNum)
 
     const cached = await cache.get(cacheKey)
     if (cached) {
-      console.log("[search] cache HIT with role/pct:", roleNum, rolePct, "items:", Array.isArray(cached) ? cached.length : "-")
+      console.log("[search] cache HIT with role:", roleNum, "items:", Array.isArray(cached) ? cached.length : "-")
       // pequeño sample para confirmar que priceUser existe
       const sample = Array.isArray(cached) ? cached.slice(0, 2).map(o => ({
         hotelCode: o.hotelCode,
@@ -210,7 +194,8 @@ export const search = async (req, res, next) => {
       })) : []
       console.log("[search] cache sample:", sample)
       res.set("x-markup-role", String(roleNum))
-      res.set("x-markup-pct", String(rolePct))
+      const samplePct = Array.isArray(cached) && cached[0] ? getMarkup(roleNum, cached[0].price) : getMarkup(roleNum, 0)
+      res.set("x-markup-pct", String(samplePct))
       if (sample.length) {
         try { res.set("x-markup-sample", JSON.stringify(sample).slice(0, 512)) } catch (_) {}
       }
@@ -284,7 +269,7 @@ export const search = async (req, res, next) => {
     }
 
     // 4) Aplicar markup por rol (nuevo campo priceUser)
-    const withMarkup = decorateWithMarkup(result, rolePct, roleNum)
+    const withMarkup = decorateWithMarkup(result, roleNum)
 
     // diffs de precios para debug
     if (Array.isArray(withMarkup) && withMarkup.length) {
@@ -314,7 +299,10 @@ export const search = async (req, res, next) => {
 
     // headers útiles
     res.set("x-markup-role", String(roleNum))
-    res.set("x-markup-pct", String(rolePct))
+    const headerPct = Array.isArray(withMarkup) && withMarkup[0]
+      ? getMarkup(roleNum, withMarkup[0].price)
+      : getMarkup(roleNum, 0)
+    res.set("x-markup-pct", String(headerPct))
     try {
       const hdrSample = (withMarkup || []).slice(0, 2).map(o => ({
         hotelCode: o.hotelCode, price: o.price, priceUser: o.priceUser
