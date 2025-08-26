@@ -5,11 +5,20 @@
 import { useState, useEffect, useMemo } from "react"
 import { useSelector } from "react-redux"
 import { useNavigate } from "react-router-dom"
-import axios from "axios"
 import { loadStripe } from "@stripe/stripe-js"
 import * as Icons from "lucide-react"
+import {
+  getLatestBooking,
+  getBookingById,
+  getHotelRooms,
+  getHotelAddons,
+  validateUpsellCode,
+  markAddonReady,
+  createOutsideAddonsSession,
+  createUpsellSession,
+  requestAddon,
+} from "../../utils/Api"
 
-const API_URL  = import.meta.env.VITE_API_URL
 const STRIPE_PK = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
 const stripePromise = loadStripe(STRIPE_PK)
 
@@ -102,32 +111,12 @@ export default function AddOns() {
       try {
         let latest = null
         try {
-          const res = await axios.get(
-            `${API_URL}/bookings/me?latest=true&ts=${Date.now()}`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Cache-Control": "no-cache",
-              },
-              validateStatus: (s) => s < 500,
-            },
-          )
-          latest = res.data && Object.keys(res.data).length ? res.data : null
+          latest = await getLatestBooking(token)
         } catch {}
 
         let detail = null
         if (latest?.id) {
-          const detailUrl =
-            latest.source === "outside"
-              ? `${API_URL}/bookings/${latest.id}`
-              : `${API_URL}/bookings/${latest.id}`
-          const { data } = await axios.get(detailUrl, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Cache-Control": "no-cache",
-            },
-          })
-          detail = data
+          detail = await getBookingById(latest.id, token)
           setLatestBk(detail)
           setNights(diffDays(detail.checkIn, detail.checkOut))
         } else {
@@ -137,10 +126,7 @@ export default function AddOns() {
         if (detail?.hotel?.id) {
           try {
             setLoadingRooms(true)
-            const { data: rooms } = await axios.get(
-              `${API_URL}/hotels/${detail.hotel.id}/rooms/`,
-              { headers: { Authorization: `Bearer ${token}` } },
-            )
+            const rooms = await getHotelRooms(detail.hotel.id, token)
             setRoomsList(rooms)
           } catch (e) {
             console.error("Error loading rooms:", e)
@@ -152,9 +138,7 @@ export default function AddOns() {
         let catalogue = []
         const hid = detail?.hotel?.id ?? null
         if (hid) {
-          const { data } = await axios.get(
-            `${API_URL}/addons/${hid}/hotel-addons?withOptions=true`,
-          )
+          const data = await getHotelAddons(hid)
           catalogue = data.filter((a) => a.active !== false)
           if (detail?.status === "discount") {
             catalogue = catalogue.map((a) => ({
@@ -190,10 +174,9 @@ export default function AddOns() {
     if (code.trim().length !== 4) return alert("Code must be 4 digits")
     try {
       setLoading(true)
-      await axios.post(
-        `${API_URL}/upsell-code/validate`,
+      await validateUpsellCode(
         { code, addOnId: selected.id, bookingId: latestBk.id },
-        { headers: { Authorization: `Bearer ${token}` } },
+        token,
       )
       navigate(`/outside-addons-success?bookingId=${latestBk.id}`)
     } catch (err) {
@@ -238,20 +221,15 @@ export default function AddOns() {
   const payExisting = async (addon) => {
     try {
       setLoading(true)
-      await axios.put(
-        `${API_URL}/addons/bookings/ready/${addon.bookingAddOnId}`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } },
-      )
+      await markAddonReady(addon.bookingAddOnId, token)
       await refreshBooking()
       const amount = Math.round(addon.unitPrice * 100)
-      const { data } = await axios.post(
-        `${API_URL}/payments/outside-addons/create-session`,
+      const { sessionId } = await createOutsideAddonsSession(
         { bookingId: latestBk.id, amount, currency: "usd" },
-        { headers: { Authorization: `Bearer ${token}` } },
+        token,
       )
       const stripe = await stripePromise
-      await stripe.redirectToCheckout({ sessionId: data.sessionId })
+      await stripe.redirectToCheckout({ sessionId })
     } catch (err) {
       console.error(err)
       alert(err.response?.data?.error || "Stripe error")
@@ -320,13 +298,7 @@ export default function AddOns() {
 
   const refreshBooking = async () => {
     if (!latestBk) return
-    const detailUrl =
-      latestBk.source === "outside"
-        ? `${API_URL}/bookings/${latestBk.id}`
-        : `${API_URL}/bookings/${latestBk.id}`
-    const { data } = await axios.get(detailUrl, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const data = await getBookingById(latestBk.id, token)
     setLatestBk(data)
   }
 
@@ -337,10 +309,9 @@ export default function AddOns() {
     }
     try {
       setLoading(true)
-      await axios.post(
-        `${API_URL}/upsell-code/validate`,
+      await validateUpsellCode(
         { code, addOnId: selected.id, bookingId: latestBk.id },
-        { headers: { Authorization: `Bearer ${token}` } },
+        token,
       )
       navigate(`/outside-addons-success?bookingId=${latestBk.id}`)
     } catch (err) {
@@ -355,13 +326,12 @@ export default function AddOns() {
       setLoading(true)
       if (latestBk.source === "outside") {
         const amount = Math.round(summary.total * 100)
-        const { data } = await axios.post(
-          `${API_URL}/payments/outside-addons/create-session`,
+        const { sessionId } = await createOutsideAddonsSession(
           { bookingId: latestBk.id, amount, currency: "usd" },
-          { headers: { Authorization: `Bearer ${token}` } },
+          token,
         )
         const stripe = await stripePromise
-        await stripe.redirectToCheckout({ sessionId: data.sessionId })
+        await stripe.redirectToCheckout({ sessionId })
       } else {
         const payload = {
           bookingId: latestBk.id,
@@ -370,13 +340,9 @@ export default function AddOns() {
           qty      : isRoomUpgrade ? 1 : qty,
           roomId   : isRoomUpgrade ? opt?.id : undefined,
         }
-        const { data } = await axios.post(
-          `${API_URL}/payments/upsell/create-session`,
-          payload,
-          { headers: { Authorization: `Bearer ${token}` } },
-        )
+        const { sessionId } = await createUpsellSession(payload, token)
         const stripe = await stripePromise
-        await stripe.redirectToCheckout({ sessionId: data.sessionId })
+        await stripe.redirectToCheckout({ sessionId })
       }
     } catch (err) {
       console.error(err)
@@ -398,9 +364,7 @@ export default function AddOns() {
         pieces   : isLaundry ? pieceCounts : undefined,
         roomId   : isRoomUpgrade ? opt?.id : undefined,
       }
-      await axios.post(`${API_URL}/addons/request`, payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      await requestAddon(payload, token)
       await refreshBooking()
       setStep("SENT")
     } catch (err) {

@@ -10,7 +10,6 @@
 import { useEffect, useState, useMemo } from "react"
 import { useSelector, useDispatch } from "react-redux"
 import { useNavigate } from "react-router-dom"
-import axios from "axios"
 import {
   ArrowLeft,
   Calendar,
@@ -21,14 +20,13 @@ import {
   Info,
   X,
 } from "lucide-react"
+import { getBookingById, cancelTGXBooking, cancelBooking } from "../../utils/Api"
 
 import {
   fetchUserBookings,
   // cancelBooking,  // ← ya no lo usamos; dejamos la acción por si la querés mantener
   clearBookingErrors,
 } from "../../features/booking/bookingSlice"
-
-const API_URL = import.meta.env.VITE_API_URL
 
 /* ───── estilos iOS-like (para <button>) ───── */
 const iosStyle = {
@@ -137,34 +135,19 @@ const canCancel = (b) => {
     setCancelMsg(null)
 
     try {
-      // Prepara headers si usás JWT
-      const cfg = {
-  headers: {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  },
+      const detail = await getBookingById(cancelTarget.id, token)
 
-}
-
-      // Cargamos detalles para saber si es TGX y obtener externalRef
-      const { data: detail } = await axios.get(`${API_URL}/bookings/${cancelTarget.id}`, cfg)
-
-      // Si el booking viene de TGX esperamos externalRef (bookingID del proveedor)
-      const isTGX = detail?.meta && detail?.source !== "OUTSIDE" && !!detail?.meta // heurística
+      const isTGX = detail?.meta && detail?.source !== "OUTSIDE" && !!detail?.meta
       const externalRef = detail?.externalRef || null
 
       if (isTGX && externalRef) {
-        // TravelgateX cancel
-        await axios.post(`${API_URL}/tgx/cancel`, { bookingID: externalRef }, cfg)
+        await cancelTGXBooking(externalRef, token)
       } else {
-        // Interna / Outside
-        await axios.put(`${API_URL}/bookings/${cancelTarget.id}/cancel`, {}, cfg)
+        await cancelBooking(cancelTarget.id, token)
       }
 
       setCancelMsg("Booking cancelled successfully.")
-      // refrescar listado
       await dispatch(fetchUserBookings())
-      // cerrar modal unos ms después para que el usuario vea el mensaje
       setTimeout(() => {
         setConfirmOpen(false)
         setCancelTarget(null)
