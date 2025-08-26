@@ -1,6 +1,6 @@
 /* src/pages/Checkout/Checkout.jsx */
 "use client"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, Fragment } from "react"
 import { useSelector, useDispatch } from "react-redux"
 import { useNavigate } from "react-router-dom"
 import { loadStripe } from "@stripe/stripe-js"
@@ -507,7 +507,6 @@ const Checkout = () => {
   }, [dispatch])
 
   // Helpers
-  const hotel = selectedHotel || null
 
   // Si PARTNER no trae paymentType, asumimos MERCHANT (Stripe)
   const paymentType = (
@@ -763,7 +762,7 @@ const Checkout = () => {
           ]
 
     return (
-      <div className="flex items-center justify-center mb-8 overflow-x-auto">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-center mb-8">
         {steps.map((step, index) => {
           const Icon = step.icon
           const isActive = currentStep === step.id
@@ -772,37 +771,43 @@ const Checkout = () => {
           const isError = step.id === "quote" && quoteStatus === "failed"
 
           return (
-            <div key={step.id} className="flex items-center">
-              <div
-                className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${
-                  isError
-                    ? "border-red-500 bg-red-50 text-red-600"
-                    : isCompleted
-                    ? "border-green-500 bg-green-500 text-white"
-                    : isActive
-                    ? "border-red-500 bg-red-500 text-white"
-                    : "border-gray-300 bg-gray-100 text-gray-400"
-                }`}
-              >
-                {isError ? (
-                  <XCircle className="h-5 w-5" />
-                ) : isCompleted ? (
-                  <CheckCircle className="h-5 w-5" />
-                ) : (
-                  <Icon className="h-5 w-5" />
-                )}
+            <Fragment key={step.id}>
+              <div className="flex items-center">
+                <div
+                  className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${
+                    isError
+                      ? "border-red-500 bg-red-50 text-red-600"
+                      : isCompleted
+                      ? "border-green-500 bg-green-500 text-white"
+                      : isActive
+                      ? "border-red-500 bg-red-500 text-white"
+                      : "border-gray-300 bg-gray-100 text-gray-400"
+                  }`}
+                >
+                  {isError ? (
+                    <XCircle className="h-5 w-5" />
+                  ) : isCompleted ? (
+                    <CheckCircle className="h-5 w-5" />
+                  ) : (
+                    <Icon className="h-5 w-5" />
+                  )}
+                </div>
+                <span
+                  className={`ml-2 text-sm font-medium whitespace-nowrap ${
+                    isActive ? "text-red-600" : isCompleted ? "text-green-600" : "text-gray-500"
+                  }`}
+                >
+                  {step.label}
+                </span>
               </div>
-              <span
-                className={`ml-2 text-sm font-medium whitespace-nowrap ${
-                  isActive ? "text-red-600" : isCompleted ? "text-green-600" : "text-gray-500"
-                }`}
-              >
-                {step.label}
-              </span>
               {index < steps.length - 1 && (
-                <div className={`w-8 h-0.5 mx-4 ${isCompleted ? "bg-green-500" : "bg-gray-300"}`} />
+                <div
+                  className={`h-8 w-0.5 mx-auto sm:h-0.5 sm:w-8 sm:mx-4 ${
+                    isCompleted ? "bg-green-500" : "bg-gray-300"
+                  }`}
+                />
               )}
-            </div>
+            </Fragment>
           )
         })}
       </div>
@@ -1320,8 +1325,10 @@ const Checkout = () => {
 
             {/* Right Column - Price Summary */}
             <div className="lg:col-span-1">
-              <div className="sticky top-8">
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+
+              <div className="lg:sticky lg:top-8">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+
                   {/* Hotel Info */}
                   <div className="flex items-start space-x-4 mb-6 pb-6 border-b border-gray-100">
                     <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
