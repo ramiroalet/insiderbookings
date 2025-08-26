@@ -127,9 +127,15 @@ const applyMarkup = (amount, pct) => {
 export const createTravelgatePaymentIntent = async (req, res) => {
   console.log(req.body)
 
+  // helper para responder 400 con más contexto
+  const badReq = (code, payload = {}) => {
+    const out = { error: code, ...payload }
+    console.warn("↩️ 400:", out)
+    return res.status(400).json(out)
+  }
+
   let tx
   try {
-    // ⬇️ No extraigo searchOptionRefId directo; lo normalizo más abajo
     const {
       amount,
       currency = "EUR",
@@ -141,20 +147,28 @@ export const createTravelgatePaymentIntent = async (req, res) => {
       captureManual, // opcional desde FE
     } = req.body
 
-    // ✅ Normalizar el identificador de opción: aceptar searchOptionRefId u optionRefId
-    const searchOptionRefId =
+    // ✅ Normalizar: aceptamos varios alias
+    const idRaw =
       req.body.searchOptionRefId ||
       req.body.optionRefId ||
+      req.body.quoteOptionRefId ||
       null
 
-    if (!amount || !searchOptionRefId || !guestInfo) {
-      return res.status(400).json({
-        error: "amount, searchOptionRefId, and guestInfo are required",
+    if (!amount || !idRaw || !guestInfo) {
+      return badReq("MISSING_PARAMS", {
+        message: "amount, searchOptionRefId (or optionRefId), and guestInfo are required",
+        debug: {
+          hasAmount: Boolean(amount),
+          hasAnyOptionId: Boolean(idRaw),
+          hasGuestInfo: Boolean(guestInfo),
+        },
       })
     }
 
-    const checkInDO  = toDateOnly(bookingData.checkIn)
-    const checkOutDO = toDateOnly(bookingData.checkOut)
+    const searchOptionRefId = idRaw
+
+    const checkInDO  = toDateOnly?.(bookingData.checkIn)  || toDateOnly?.(new Date(bookingData.checkIn))  || null
+    const checkOutDO = toDateOnly?.(bookingData.checkOut) || toDateOnly?.(new Date(bookingData.checkOut)) || null
     const currency3  = String(currency || "EUR").slice(0, 3).toUpperCase()
 
     const tgxHotelCode = bookingData.tgxHotelCode || bookingData.hotelCode || bookingData.hotelId
@@ -164,11 +178,14 @@ export const createTravelgatePaymentIntent = async (req, res) => {
     const roomIdFK  = isNumeric(roomIdRaw) ? Number(roomIdRaw) : null
 
     if (!checkInDO || !checkOutDO) {
-      return res.status(400).json({ error: "bookingData.checkIn and bookingData.checkOut are required/valid" })
+      return badReq("INVALID_DATES", {
+        message: "bookingData.checkIn and bookingData.checkOut are required/valid",
+        debug: { checkIn: bookingData.checkIn, checkOut: bookingData.checkOut }
+      })
     }
 
     // Verificar precio actual con quoteTGX y aplicar markup en servidor
-    const roleNum = getRoleFromReq(req)
+    const roleNum = getRoleFromReq?.(req)
     const rolePct = Object.prototype.hasOwnProperty.call(ROLE_MARKUP, roleNum)
       ? ROLE_MARKUP[roleNum]
       : ROLE_MARKUP[1]
@@ -182,29 +199,51 @@ export const createTravelgatePaymentIntent = async (req, res) => {
 
     let quote
     try {
-      // ⬇️ Uso el valor normalizado
       quote = await quoteTGX(searchOptionRefId, settings)
     } catch (e) {
+      const msg = String(e?.message || e || "")
+      // Caso típico: se pasó el ID de la QUOTE en vez del SEARCH
+      if (msg.toLowerCase().includes("search optionid expected")) {
+        return badReq("WRONG_OPTION_ID_TYPE", {
+          message: "Expected SEARCH optionRefId (from search), not QUOTE optionRefId.",
+          tip: "Guardá el optionRefId que te devuelve la búsqueda y usalo acá. El de la QUOTE no sirve para volver a cotizar.",
+          debug: { receivedIdSample: typeof searchOptionRefId === "string" ? searchOptionRefId.slice(0, 80) + "..." : null }
+        })
+      }
       console.error("❌ Quote error:", e)
-      return res.status(400).json({ error: "Could not verify price" })
+      return badReq("QUOTE_FAILED", { message: "Could not verify price", detail: msg })
     }
 
     const quoteOptionRefId = quote?.optionRefId
     if (!quoteOptionRefId) {
-      return res.status(400).json({ error: "Invalid quote without optionRefId" })
+      return badReq("QUOTE_WITHOUT_OPTION_ID", { message: "Invalid quote without optionRefId" })
     }
 
     const verifiedNet = moneyRound(Number(quote?.price?.net))
     if (!Number.isFinite(verifiedNet)) {
-      return res.status(400).json({ error: "Invalid net price from supplier" })
+      return badReq("INVALID_NET_FROM_SUPPLIER", { message: "Invalid net price from supplier", debug: { net: quote?.price?.net } })
     }
+
     const computedGross   = applyMarkup(verifiedNet, rolePct)
     const requestedAmount = moneyRound(Number(amount))
-    if (Math.abs(computedGross - requestedAmount) > 0.01) {
-      return res.status(400).json({
-        error: "Amount mismatch with current price",
-        expected: computedGross,
-        received: requestedAmount,
+
+    if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+      return badReq("INVALID_REQUESTED_AMOUNT", { message: "Amount must be a positive number", debug: { amount } })
+    }
+
+    // estrictos pero con d=0.01 para redondeo
+    const delta = Math.abs(computedGross - requestedAmount)
+    if (delta > 0.01) {
+      return badReq("AMOUNT_MISMATCH", {
+        message: "Amount mismatch with current price",
+        debug: {
+          expected: computedGross,
+          received: requestedAmount,
+          net: verifiedNet,
+          roleNum,
+          rolePct,
+          delta
+        }
       })
     }
 
@@ -274,7 +313,7 @@ export const createTravelgatePaymentIntent = async (req, res) => {
           origin: "tgx-payment.create-payment-intent",
           snapshot: {
             checkIn: bookingData.checkIn,
-            checkOut: bookingData.checkOut,
+            CheckOut: bookingData.checkOut,
             source,
             tgxHotelCode,
             hotelName: bookingData.hotelName || null,
@@ -301,8 +340,7 @@ export const createTravelgatePaymentIntent = async (req, res) => {
           hotelName: bookingData.hotelName || null,
           location: bookingData.location || null,
           paymentType: bookingData.paymentType || null,
-          // ⬇️ Guardamos lo que realmente usamos
-          searchOptionRefId,
+          searchOptionRefId, // guardamos lo que realmente usamos
         },
       },
       { transaction: tx }
@@ -362,6 +400,7 @@ export const createTravelgatePaymentIntent = async (req, res) => {
     return res.status(500).json({ error: error.message })
   }
 }
+
 
 
 /* ╔══════════════════════════════════════════════════════════════════════════╗
