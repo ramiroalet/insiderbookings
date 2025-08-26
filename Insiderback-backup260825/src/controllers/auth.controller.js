@@ -247,9 +247,9 @@ export const loginUser = async (req, res) => {
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: "Invalid credentials" });
 
-    if (!user.email_verified) {
+  /*   if (!user.email_verified) {
       return res.status(403).json({ error: "Verifique su correo" });
-    }
+    } */
 
     /* 3 ▸ Emitir JWT */
     const token = signToken({ id: user.id, type: "user", role: user.role });

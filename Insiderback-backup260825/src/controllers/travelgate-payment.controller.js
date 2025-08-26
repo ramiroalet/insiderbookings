@@ -125,12 +125,14 @@ const applyMarkup = (amount, pct) => {
    ║  CREAR PAYMENT INTENT PARA TRAVELGATEX BOOKING                           ║
    ╚══════════════════════════════════════════════════════════════════════════╝ */
 export const createTravelgatePaymentIntent = async (req, res) => {
+  console.log(req.body)
+
   let tx
   try {
+    // ⬇️ No extraigo searchOptionRefId directo; lo normalizo más abajo
     const {
       amount,
       currency = "EUR",
-      searchOptionRefId,
       guestInfo = {},
       bookingData = {},
       user_id = null,
@@ -139,8 +141,16 @@ export const createTravelgatePaymentIntent = async (req, res) => {
       captureManual, // opcional desde FE
     } = req.body
 
+    // ✅ Normalizar el identificador de opción: aceptar searchOptionRefId u optionRefId
+    const searchOptionRefId =
+      req.body.searchOptionRefId ||
+      req.body.optionRefId ||
+      null
+
     if (!amount || !searchOptionRefId || !guestInfo) {
-      return res.status(400).json({ error: "amount, searchOptionRefId, and guestInfo are required" })
+      return res.status(400).json({
+        error: "amount, searchOptionRefId, and guestInfo are required",
+      })
     }
 
     const checkInDO  = toDateOnly(bookingData.checkIn)
@@ -172,6 +182,7 @@ export const createTravelgatePaymentIntent = async (req, res) => {
 
     let quote
     try {
+      // ⬇️ Uso el valor normalizado
       quote = await quoteTGX(searchOptionRefId, settings)
     } catch (e) {
       console.error("❌ Quote error:", e)
@@ -187,7 +198,7 @@ export const createTravelgatePaymentIntent = async (req, res) => {
     if (!Number.isFinite(verifiedNet)) {
       return res.status(400).json({ error: "Invalid net price from supplier" })
     }
-    const computedGross = applyMarkup(verifiedNet, rolePct)
+    const computedGross   = applyMarkup(verifiedNet, rolePct)
     const requestedAmount = moneyRound(Number(amount))
     if (Math.abs(computedGross - requestedAmount) > 0.01) {
       return res.status(400).json({
@@ -197,7 +208,7 @@ export const createTravelgatePaymentIntent = async (req, res) => {
       })
     }
 
-    const finalAmount = computedGross
+    const finalAmount  = computedGross
     const finalNetCost = verifiedNet
 
     const isTGX = (source === "TGX" || bookingData.source === "TGX")
@@ -275,42 +286,43 @@ export const createTravelgatePaymentIntent = async (req, res) => {
       { transaction: tx }
     )
 
-      await TGXMeta.create(
-        {
-          booking_id: booking.id,
-          option_id: String(quoteOptionRefId),
-          access: bookingData.access ? String(bookingData.access) : null,
-          room_code: bookingData.roomCode ? String(bookingData.roomCode) : null,
-          board_code: bookingData.boardCode ? String(bookingData.boardCode) : null,
-          cancellation_policy: bookingData.cancellationPolicy || null,
-          token: bookingData.token || null,
-          meta: {
-            roomIdRaw,
-            tgxHotelCode,
-            hotelName: bookingData.hotelName || null,
-            location: bookingData.location || null,
-            paymentType: bookingData.paymentType || null,
-            searchOptionRefId,
-          },
+    await TGXMeta.create(
+      {
+        booking_id: booking.id,
+        option_id: String(quoteOptionRefId),
+        access: bookingData.access ? String(bookingData.access) : null,
+        room_code: bookingData.roomCode ? String(bookingData.roomCode) : null,
+        board_code: bookingData.boardCode ? String(bookingData.boardCode) : null,
+        cancellation_policy: bookingData.cancellationPolicy || null,
+        token: bookingData.token || null,
+        meta: {
+          roomIdRaw,
+          tgxHotelCode,
+          hotelName: bookingData.hotelName || null,
+          location: bookingData.location || null,
+          paymentType: bookingData.paymentType || null,
+          // ⬇️ Guardamos lo que realmente usamos
+          searchOptionRefId,
         },
-        { transaction: tx }
-      )
+      },
+      { transaction: tx }
+    )
 
-      const metadata = {
-        type: "travelgate_booking",
-        bookingRef: booking_ref,
-        booking_id: String(booking.id),
-        tgxRefHash: sha32(quoteOptionRefId),
-        guestName: trim500(guestInfo.fullName),
-        guestEmail: trim500(guestInfo.email),
-        guestPhone: trim500(guestInfo.phone),
-        checkIn: trim500(checkInDO),
-        checkOut: trim500(checkOutDO),
-        hotelId: trim500(booking_hotel_id ?? ""),
-        tgxHotelId: trim500(booking_tgx_hotel_id ?? ""),
-        tgxHotelCode: trim500(tgxHotelCode ?? ""),
-        roomId: trim500(roomIdFK ?? roomIdRaw ?? ""),
-      }
+    const metadata = {
+      type: "travelgate_booking",
+      bookingRef: booking_ref,
+      booking_id: String(booking.id),
+      tgxRefHash: sha32(quoteOptionRefId),
+      guestName: trim500(guestInfo.fullName),
+      guestEmail: trim500(guestInfo.email),
+      guestPhone: trim500(guestInfo.phone),
+      checkIn: trim500(checkInDO),
+      checkOut: trim500(checkOutDO),
+      hotelId: trim500(booking_hotel_id ?? ""),
+      tgxHotelId: trim500(booking_tgx_hotel_id ?? ""),
+      tgxHotelCode: trim500(tgxHotelCode ?? ""),
+      roomId: trim500(roomIdFK ?? roomIdRaw ?? ""),
+    }
 
     const wantManualCapture =
       captureManual === true || String(process.env.STRIPE_CAPTURE_MANUAL || "").toLowerCase() === "true"
@@ -350,6 +362,7 @@ export const createTravelgatePaymentIntent = async (req, res) => {
     return res.status(500).json({ error: error.message })
   }
 }
+
 
 /* ╔══════════════════════════════════════════════════════════════════════════╗
    ║  CONFIRMAR PAGO Y PROCESAR BOOKING CON TRAVELGATEX (SIN VCC)            ║
