@@ -885,7 +885,7 @@ const Checkout = () => {
             {/* Left Column */}
             <div className="lg:col-span-2 space-y-8">
               {/* Trip Summary */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Your trip</h2>
                 <div className="space-y-4">
                   {/* Dates */}
@@ -967,7 +967,7 @@ const Checkout = () => {
 
               {/* Steps */}
               {currentStep === "guest-info" && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
                   <h2 className="text-xl font-semibold text-gray-900 mb-6">Guest information</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
@@ -1037,7 +1037,7 @@ const Checkout = () => {
 
               {/* Quote Step (solo TGX) */}
               {source !== "PARTNER" && currentStep === "quote" && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
                   <div className="flex items-center space-x-2 mb-6">
                     <DollarSign className="h-5 w-5 text-gray-600" />
                     <h2 className="text-xl font-semibold text-gray-900">Quote Verification</h2>
@@ -1131,7 +1131,7 @@ const Checkout = () => {
 
               {/* Payment Step */}
               {currentStep === "payment" && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
                   <div className="flex items-center space-x-2 mb-2">
                     <CreditCard className="h-5 w-5 text-gray-600" />
                     <h2 className="text-xl font-semibold text-gray-900">Payment Information</h2>
@@ -1236,7 +1236,7 @@ const Checkout = () => {
 
               {/* Confirmation Step */}
               {currentStep === "confirmation" && bookingResult && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
                   <div className="text-center">
                     <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">Booking Confirmed!</h2>
@@ -1321,7 +1321,7 @@ const Checkout = () => {
             {/* Right Column - Price Summary */}
             <div className="lg:col-span-1">
               <div className="sticky top-8">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
                   {/* Hotel Info */}
                   <div className="flex items-start space-x-4 mb-6 pb-6 border-b border-gray-100">
                     <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
