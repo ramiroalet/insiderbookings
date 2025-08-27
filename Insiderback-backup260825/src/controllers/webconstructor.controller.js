@@ -1,22 +1,36 @@
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
 import models from '../models/index.js'
-import { fetchHotels } from "../services/tgx.hotelList.service.js"
 import cache from '../services/cache.js'
+import { fetchHotels } from "../services/tgx.hotelList.service.js"
 
+/* --- helpers internos --- */
 /* --- helpers internos --- */
 function toDTO(cfg) {
     if (!cfg) return null
+    const c = typeof cfg.toJSON === 'function' ? cfg.toJSON() : cfg
+    const get = (camel, snake, fallback = '') => c?.[camel] ?? c?.[snake] ?? fallback
+
     return {
-        primaryColor: cfg.primary_color || '#2563eb',
-        secondaryColor: cfg.secondary_color || '#111827',
-        logoUrl: cfg.logo_url || '',
-        faviconUrl: cfg.favicon_url || '',
-        fontFamily: cfg.font_family || 'Inter, sans-serif',
-        templateKey: cfg.template_key || 'classic',
-        extra: cfg.extra || {}
+        // apariencia
+        primaryColor: get('primaryColor', 'primary_color', '#2563eb'),
+        secondaryColor: get('secondaryColor', 'secondary_color', '#111827'),
+        logoUrl: get('logoUrl', 'logo_url', ''),
+        faviconUrl: get('faviconUrl', 'favicon_url', ''),
+        fontFamily: get('fontFamily', 'font_family', 'Inter, sans-serif'),
+        templateKey: get('templateKey', 'template_key', 'classic'),
+        stars: get('stars', 'stars', 0),
+
+        // redes (el público las recibe en snake_case como acordamos)
+        facebook_url: get('facebookUrl', 'facebook_url', ''),
+        instagram_url: get('instagramUrl', 'instagram_url', ''),
+        tiktok_url: get('tiktokUrl', 'tiktok_url', ''),
+        youtube_url: get('youtubeUrl', 'youtube_url', ''),
+        x_url: get('xUrl', 'x_url', ''),
+        linkedin_url: get('linkedinUrl', 'linkedin_url', ''),
     }
 }
+
 
 const accountDTO = (acc) => ({
     id: acc.id,
@@ -31,7 +45,6 @@ const accountDTO = (acc) => ({
 
 /* --- LOGIN / ME --- */
 export async function wcLogin(req, res) {
-    console.log("login")
     try {
         const { email, password } = req.body || {}
         if (!email || !password) return res.status(400).json({ error: 'Email & password required' })
@@ -76,55 +89,32 @@ export async function wcMe(req, res) {
 /* --- SITE CONFIG --- */
 export async function getSiteConfigPrivate(req, res) {
     try {
-        const cfg = await models.WcSiteConfig.findOne({ where: { tenant_id: req.tenant.id } })
-        return res.json(toDTO(cfg) || toDTO({}))
-    } catch (e) {
-        console.error(e); res.status(500).json({ error: 'Server error' })
-    }
+        const cfg = await models.WcSiteConfig.findOne({ where: { tenantId: req.tenant.id } })
+        res.json(cfg || {}) // ya viene en camelCase
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Server error' }) }
 }
 
 export async function updateSiteConfigPrivate(req, res) {
     try {
-        const { primaryColor, secondaryColor, logoUrl, faviconUrl, fontFamily, templateKey, extra } = req.body || {}
-
-        // validar plantilla si viene
-        if (templateKey) {
-            const tpl = await models.WcTemplate.findOne({ where: { key: templateKey, is_active: true } })
+        const body = req.body || {}
+        // si necesitás validar templateKey:
+        if (body.templateKey) {
+            const tpl = await models.WcTemplate.findOne({ where: { key: body.templateKey, is_active: true } })
             if (!tpl) return res.status(400).json({ error: 'Invalid templateKey' })
         }
 
         const [cfg, created] = await models.WcSiteConfig.findOrCreate({
-            where: { tenant_id: req.tenant.id },
-            defaults: {
-                tenant_id: req.tenant.id,
-                primary_color: primaryColor,
-                secondary_color: secondaryColor,
-                logo_url: logoUrl,
-                favicon_url: faviconUrl,
-                font_family: fontFamily,
-                template_key: templateKey || 'classic',
-                extra: extra || {}
-            }
+            where: { tenantId: req.tenant.id },
+            defaults: { tenantId: req.tenant.id, ...body }
         })
-        if (!created) {
-            cfg.primary_color = primaryColor ?? cfg.primary_color
-            cfg.secondary_color = secondaryColor ?? cfg.secondary_color
-            cfg.logo_url = logoUrl ?? cfg.logo_url
-            cfg.favicon_url = faviconUrl ?? cfg.favicon_url
-            cfg.font_family = fontFamily ?? cfg.font_family
-            cfg.template_key = templateKey ?? cfg.template_key
-            cfg.extra = extra ?? cfg.extra
-            await cfg.save()
-        }
-        return res.json(toDTO(cfg))
-    } catch (e) {
-        console.error(e); res.status(500).json({ error: 'Server error' })
-    }
+        if (!created) await cfg.update(body)
+        res.json(cfg)
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Server error' }) }
 }
 
 export async function getSiteConfigPublic(req, res) {
     try {
-        const cfg = await models.WcSiteConfig.findOne({ where: { tenant_id: req.tenant.id } })
+        const cfg = await models.WcSiteConfig.findOne({ where: { tenantId: req.tenant.id } })
         return res.json(toDTO(cfg))
     } catch (e) {
         console.error(e); res.status(500).json({ error: 'Server error' })
@@ -138,111 +128,6 @@ export async function listTemplates(_req, res) {
             attributes: ['key', 'name', 'description', 'version', 'preview_image', 'demo_url']
         })
         res.json(items)
-    } catch (e) {
-        console.error(e); res.status(500).json({ error: 'Server error' })
-    }
-}
-
-export async function listAccounts(req, res) {
-    try {
-        const rows = await models.WcAccount.findAll({
-            where: { tenant_id: req.tenant.id },
-            order: [['id', 'ASC']],
-            attributes: ['id', 'email', 'display_name', 'is_active', 'roles', 'permissions', 'createdAt', 'updatedAt']
-        })
-        res.json(rows.map(accountDTO))
-    } catch (e) {
-        console.error(e); res.status(500).json({ error: 'Server error' })
-    }
-}
-
-export async function createAccount(req, res) {
-    try {
-        const { email, displayName, password, roles = [], permissions = [], isActive = true } = req.body || {}
-
-        if (!email || !password) return res.status(400).json({ error: 'Email y password requeridos' })
-        const exists = await models.WcAccount.findOne({ where: { tenant_id: req.tenant.id, email } })
-        if (exists) return res.status(409).json({ error: 'Email ya existe en este tenant' })
-
-        const password_hash = await bcrypt.hash(password, 10)
-        const acc = await models.WcAccount.create({
-            tenant_id: req.tenant.id,
-            email,
-            display_name: displayName || email.split('@')[0],
-            password_hash,
-            is_active: !!isActive,
-            roles,
-            permissions
-        })
-        res.status(201).json(accountDTO(acc))
-    } catch (e) {
-        console.error(e); res.status(500).json({ error: 'Server error' })
-    }
-}
-
-export async function updateAccount(req, res) {
-    try {
-        const id = Number(req.params.id)
-        const { email, displayName, roles, permissions, isActive, password } = req.body || {}
-
-        const acc = await models.WcAccount.findOne({ where: { id, tenant_id: req.tenant.id } })
-        if (!acc) return res.status(404).json({ error: 'No encontrado' })
-
-        // seguridad: no dejar desactivarse a sí mismo ni quitarse permisos sin querer
-        if (acc.id === req.user.accountId) {
-            if (typeof isActive === 'boolean' && isActive === false) return res.status(400).json({ error: 'No podés desactivarte a vos mismo' })
-        }
-
-        if (email) {
-            const dup = await models.WcAccount.findOne({
-                where: { tenant_id: req.tenant.id, email, id: { [Op.ne]: id } }
-            })
-            if (dup) return res.status(409).json({ error: 'Email ya usado por otro usuario' })
-            acc.email = email
-        }
-
-        if (displayName !== undefined) acc.display_name = displayName
-        if (Array.isArray(roles)) acc.roles = roles
-        if (Array.isArray(permissions)) acc.permissions = permissions
-        if (typeof isActive === 'boolean') {
-            if (acc.id === req.user.accountId && isActive === false) {
-                return res.status(400).json({ error: 'No podés desactivarte a vos mismo' })
-            }
-            acc.is_active = isActive
-        }
-        if (password) acc.password_hash = await bcrypt.hash(password, 10)
-
-        await acc.save()
-        res.json(accountDTO(acc))
-    } catch (e) {
-        console.error(e); res.status(500).json({ error: 'Server error' })
-    }
-}
-
-export async function toggleAccountStatus(req, res) {
-    try {
-        const id = Number(req.params.id)
-        const acc = await models.WcAccount.findOne({ where: { id, tenant_id: req.tenant.id } })
-        if (!acc) return res.status(404).json({ error: 'No encontrado' })
-        if (acc.id === req.user.accountId) return res.status(400).json({ error: 'No podés desactivarte a vos mismo' })
-        acc.is_active = !acc.is_active
-        await acc.save()
-        res.json(accountDTO(acc))
-    } catch (e) {
-        console.error(e); res.status(500).json({ error: 'Server error' })
-    }
-}
-
-export async function resetAccountPassword(req, res) {
-    try {
-        const id = Number(req.params.id)
-        const { password } = req.body || {}
-        if (!password) return res.status(400).json({ error: 'Nueva contraseña requerida' })
-        const acc = await models.WcAccount.findOne({ where: { id, tenant_id: req.tenant.id } })
-        if (!acc) return res.status(404).json({ error: 'No encontrado' })
-        acc.password_hash = await bcrypt.hash(password, 10)
-        await acc.save()
-        res.json({ ok: true })
     } catch (e) {
         console.error(e); res.status(500).json({ error: 'Server error' })
     }
@@ -275,25 +160,9 @@ export async function getHotelPublic(req, res) {
             return res.status(404).json({ error: 'Hotel not found' })
         }
 
-        // Mapeo plano “público”
-        const response = {
-            id: hotelData.hotelCode,
-            name: hotelData.hotelName,
-            categoryCode: hotelData.categoryCode,
-            chainCode: hotelData.chainCode,
-            location: hotelData.location,
-            descriptions: hotelData.descriptions,
-            medias: hotelData.medias,
-            amenities: hotelData.allAmenities,
-            // Podés agregar created/updated por si te sirven
-            createdAt: edge.node.createdAt,
-            updatedAt: edge.node.updatedAt
-        }
-
-        await cache.set(cacheKey, response, 120)
-        res.json(response)
+        await cache.set(cacheKey, hotelData, 120)
+        res.json(hotelData)
     } catch (e) {
-        // 🧰 extrae detalle útil si viene de graphql-request
         const detail = e?.response?.errors?.[0]?.message || e.message
         console.error('getHotelPublic error:', detail)
         res.status(500).json({ error: 'Server error' })
