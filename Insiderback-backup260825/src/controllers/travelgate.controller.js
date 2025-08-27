@@ -640,7 +640,10 @@ export const cancel = async (req, res, next) => {
     }
 
     // 2) Construir input FORMATO 2 para TGX
-    const accessCode = bk.tgxMeta?.access_code || "2";
+    const accessCode = bk.tgxMeta?.access_code || bk.tgxMeta?.access || null;
+    if (!accessCode) {
+      return res.status(400).json({ error: "Missing access code for cancellation" });
+    }
     const hotelCode = bk.tgxMeta?.hotel_code || "1";
     const refSupplier = bk.tgxMeta?.reference_supplier;
     const refClient = bk.tgxMeta?.reference_client;

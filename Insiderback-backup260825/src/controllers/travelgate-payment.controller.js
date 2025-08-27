@@ -332,6 +332,7 @@ export const createTravelgatePaymentIntent = async (req, res) => {
         booking_id: booking.id,
         option_id: String(quoteOptionRefId),
         access: bookingData.access ? String(bookingData.access) : null,
+        access_code: bookingData.access || null,
         room_code: bookingData.roomCode ? String(bookingData.roomCode) : null,
         board_code: bookingData.boardCode ? String(bookingData.boardCode) : null,
         cancellation_policy: bookingData.cancellationPolicy || null,
@@ -557,6 +558,7 @@ export const confirmPaymentAndBook = async (req, res) => {
       price_net:            price?.net ?? null,
       price_gross:          price?.gross ?? null,
       cancellation_policy:  cancelPolicy || null,
+      access_code:          bookingData.access || booking.tgxMeta.access_code || null,
       hotel: tgxBooking?.hotel ? {
         hotelCode:   tgxBooking.hotel.hotelCode,
         hotelName:   tgxBooking.hotel.hotelName,
@@ -917,6 +919,7 @@ export const bookWithCard = async (req, res) => {
         booking_id: booking.id,
         option_id: String(optionRefId),
         access: bookingData.access ? String(bookingData.access) : null,
+        access_code: bookingData.access || null,
         room_code: bookingData.roomCode ? String(bookingData.roomCode) : null,
         board_code: bookingData.boardCode ? String(bookingData.boardCode) : null,
         cancellation_policy: bookingData.cancellationPolicy || null,
@@ -1014,6 +1017,7 @@ export const bookWithCard = async (req, res) => {
       price_net:          price?.net ?? null,
       price_gross:        price?.gross ?? null,
       cancellation_policy: cancelPolicy || null,
+      access_code:        bookingData.access || booking.tgxMeta.access_code || null,
       hotel: tgxBooking?.hotel ? {
         hotelCode: tgxBooking.hotel.hotelCode,
         hotelName: tgxBooking.hotel.hotelName,
