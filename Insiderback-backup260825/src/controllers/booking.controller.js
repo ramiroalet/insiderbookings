@@ -12,17 +12,18 @@ const diffDays = (from, to) =>
 /* ───────────── Helper – flattener ────────────────
    Recibe una fila de Booking (snake_case en DB) y la
    convierte al formato camelCase que usa el FE.       */
-const mapStay = (row, source) => {
+const mapStay = (row, source, tgxMeta = null) => {
   let hotel = row.Hotel ?? null
   let room  = row.Room  ?? null
 
-  if (source === "tgx" && row.tgxMeta) {
-    const tgxHotel = row.tgxMeta?.hotel ?? {}
-    const tgxRoom  = row.tgxMeta?.rooms?.[0] ?? {}
+  const tgxHotel = tgxMeta?.hotel ?? null
+  const tgxRoom  = tgxMeta?.rooms?.[0] ?? null
+
+  if (source === "tgx") {
     const hotelPlain = hotel && typeof hotel.toJSON === "function" ? hotel.toJSON() : hotel
     const roomPlain  = room  && typeof room.toJSON  === "function" ? room.toJSON()  : room
-    hotel = { ...hotelPlain, ...tgxHotel }
-    room  = { ...roomPlain,  ...tgxRoom  }
+    hotel = { ...hotelPlain, ...(tgxHotel ?? {}) }
+    room  = { ...roomPlain,  ...(tgxRoom  ?? {}) }
   }
 
   // Aceptar snake_case o camelCase por si viene mezclado
@@ -42,11 +43,15 @@ const mapStay = (row, source) => {
 
     /* ─────────── hotel ─────────── */
     hotel_id   : row.hotel_id ?? hotel?.id ?? null,
-    hotel_name : hotel?.name ?? null,
+    hotel_name : hotel?.name ?? tgxHotel?.hotelName ?? null,
     location   : hotel
       ? `${hotel.city || hotel.location || ""}, ${hotel.country || ""}`.trim().replace(/, $/, "")
-      : null,
-    image      : hotel?.image  ?? null,
+      : tgxHotel?.city ?? null,
+    image      : hotel?.image
+      ?? tgxHotel?.image
+      ?? tgxHotel?.images?.[0]?.url
+      ?? tgxHotel?.images?.[0]
+      ?? null,
     rating     : hotel?.rating ?? null,
 
     /* ─────────── stay info ─────────── */
@@ -174,9 +179,10 @@ export const getBookingsUnified = async (req, res) => {
           attributes: ["name"]
         },
         {
-          model : models.TGXMeta,
-          as    : "tgxMeta",
-          required: false,
+          model     : models.TGXMeta,
+          as        : "tgxMeta",
+          attributes: ["hotel","rooms"],
+          required  : false,
         }
       ],
       order : [["check_in","DESC"]],
@@ -185,18 +191,18 @@ export const getBookingsUnified = async (req, res) => {
     })
 
     // 3. Mapear y unificar
-      const merged = rows
-        .map(r => {
-          const obj = r.toJSON()
-          const channel =
-            obj.source === "TGX"
-              ? "tgx"
-              : obj.source === "OUTSIDE"
-              ? "outside"
-              : "insider"
-          return mapStay(obj, channel)
-        })
-        .sort((a, b) => new Date(b.checkIn) - new Date(a.checkIn))
+    const merged = rows
+      .map(r => {
+        const obj = r.toJSON()
+        const channel =
+          obj.source === "TGX"
+            ? "tgx"
+            : obj.source === "OUTSIDE"
+            ? "outside"
+            : "insider"
+        return mapStay(obj, channel, obj.tgxMeta)
+      })
+      .sort((a, b) => new Date(b.checkIn) - new Date(a.checkIn))
 
     // 4. Devolver
     return res.json(latest ? merged[0] ?? null : merged)
@@ -304,7 +310,7 @@ export const getBookingById = async (req, res) => {
 
     const booking = await models.Booking.findByPk(id, {
       include: [
-        { model: models.User,         attributes: ["id", "name", "email"], required: false },
+        { model: models.User,         attributes: ["id", "name, "email"], required: false },
         { model: models.Hotel,        attributes: ["id", "name", "location", "image", "address", "city", "country", "rating"] },
         { model: models.Room,         attributes: ["id", "name", "price", "image", "beds", "capacity"] },
         {
