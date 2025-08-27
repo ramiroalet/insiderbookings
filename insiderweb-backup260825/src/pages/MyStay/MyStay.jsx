@@ -67,8 +67,6 @@ export default function MyStay() {
     })()
   }, [endpoint, token, paramId])
 
-  console.log(booking, "booking my stay")
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center">
@@ -110,54 +108,31 @@ export default function MyStay() {
     checkOut,
     status,
     paymentStatus,
-    hotel_name,
-    hotel_id,
-    room_type,
-    room_number,
+    hotel = {},
+    room = {},
     guestName,
     guestLastName,
     guestEmail,
     guestPhone,
-    Hotel,
-    Room,
+    user: bookingUser,
     addons = [],
-    meta = {},
   } = booking
 
-  const hotelName =
-    hotel_name ??
-    Hotel?.name ??
-    booking.hotel?.name ??
-    meta.hotel?.name ??
-    "—"
-  const hotelId =
-    hotel_id ?? Hotel?.id ?? booking.hotel?.id ?? meta.hotel?.id ?? null
-  const hotelAddr =
-    Hotel?.address ??
-    booking.hotel?.address ??
-    meta.hotel?.address ??
-    "-"
-  const hotelCity =
-    Hotel?.city ?? booking.hotel?.city ?? meta.hotel?.city ?? "-"
-  const hotelPhone =
-    Hotel?.phone ?? booking.hotel?.phone ?? meta.hotel?.phone ?? "-"
-  const roomType =
-    room_type ??
-    Room?.name ??
-    booking.room_type ??
-    meta.rooms?.[0]?.name ??
-    "—"
-  const roomNumber =
-    room_number ??
-    Room?.number ??
-    booking.room_number ??
-    meta.rooms?.[0]?.number ??
-    "—"
-  const primaryGuest = guestName && guestLastName ? `${guestName} ${guestLastName}` : (booking.user?.name ?? "—")
-  const contactEmail = guestEmail ?? booking.user?.email ?? "-"
+  const hotelName = hotel.name ?? "—"
+  const hotelId = hotel.id ?? null
+  const hotelAddr = hotel.address ?? "-"
+  const hotelCity = hotel.city ?? "-"
+  const hotelPhone = hotel.phone ?? "-"
+  const roomType = room.name ?? "—"
+  const roomNumber = room.room_number ?? room.number ?? "—"
+  const primaryGuest =
+    guestName && guestLastName
+      ? `${guestName} ${guestLastName}`
+      : bookingUser?.name ?? "—"
+  const contactEmail = guestEmail ?? bookingUser?.email ?? "-"
   const contactPhone = guestPhone ?? "-"
   const nights = diffDays(checkIn, checkOut)
-  const ratingVal = Number(Hotel?.rating || booking.hotel?.rating || meta.hotel?.rating) || 0
+  const ratingVal = Number(hotel.rating) || 0
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 py-8 px-6 max-w-7xl mx-auto pb-20">
