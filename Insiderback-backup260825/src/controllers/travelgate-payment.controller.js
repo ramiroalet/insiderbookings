@@ -6,6 +6,7 @@ import { sendBookingEmail } from "../emailTemplates/booking-email.js"
 import models, { sequelize } from "../models/index.js"
 import { bookTGX, quoteTGX } from "../services/tgx.booking.service.js"
 import { normalizeTGXBookingID } from "../utils/normalizeBookingId.tgx.js"
+import { getMarkup } from "../utils/markup.js"
 
 dotenv.config()
 
@@ -85,17 +86,6 @@ async function ensureTGXHotel(tgxHotelCode, snapshot = {}, tx) {
     console.warn("(TGX) ensureTGXHotel falló, se continúa sin tgx_hotel_id:", e?.message || e)
     return null
   }
-}
-
-/* ───────────────── Markup helpers ───────────────── */
-// Ajustá según negocio (mismos valores que en search)
-const ROLE_MARKUP = {
-  0: 0.50, //guest
-  1: 0.20, // staff
-  2: 0.10, // influencer
-  3: 0.10, // corporate
-  4: 0.05, // agency
-  100: 0.00, //admin
 }
 
 const moneyRound = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100
@@ -189,9 +179,6 @@ export const createTravelgatePaymentIntent = async (req, res) => {
 
     // Verificar precio actual con quoteTGX y aplicar markup en servidor
     const roleNum = getRoleFromReq?.(req)
-    const rolePct = Object.prototype.hasOwnProperty.call(ROLE_MARKUP, roleNum)
-      ? ROLE_MARKUP[roleNum]
-      : ROLE_MARKUP[1]
 
     const settings = {
       client: process.env.TGX_CLIENT,
@@ -227,6 +214,7 @@ export const createTravelgatePaymentIntent = async (req, res) => {
       return badReq("INVALID_NET_FROM_SUPPLIER", { message: "Invalid net price from supplier", debug: { net: quote?.price?.net } })
     }
 
+    const rolePct = getMarkup(roleNum, verifiedNet)
     const computedGross   = applyMarkup(verifiedNet, rolePct)
     const requestedAmount = moneyRound(Number(amount))
 
