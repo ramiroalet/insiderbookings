@@ -6,6 +6,7 @@ import cache from "../services/cache.js"
 import { fetchHotels } from "../services/tgx.hotelList.service.js"
 import { searchTGX, mapSearchOptions } from "../services/tgx.search.service.js"
 import { quoteTGX, bookTGX, cancelTGX } from "../services/tgx.booking.service.js"
+import { readBookingTGX } from "../services/tgx.bookingRead.service.js"
 import { fetchCategoriesTGX, mapCategories, fetchAllCategories } from "../services/tgx.categories.service.js"
 import { fetchDestinationsTGX, mapDestinations, fetchAllDestinations } from "../services/tgx.destinations.service.js"
 import { fetchRoomsTGX, mapRooms, fetchAllRooms } from "../services/tgx.rooms.service.js"
@@ -711,3 +712,40 @@ export const cancel = async (req, res, next) => {
     next(err);
   }
 };
+
+/** POST /api/tgx/booking-read */
+export const readBooking = async (req, res, next) => {
+  try {
+    const { bookingID, accessCode, reference = {}, start, end } = req.body || {}
+
+    let criteria
+    if (bookingID) {
+      criteria = { bookingID: String(bookingID).trim() }
+    } else if (accessCode && (reference.client || reference.supplier)) {
+      criteria = {
+        accessCode,
+        reference: {
+          ...(reference.client ? { client: reference.client } : {}),
+          ...(reference.supplier ? { supplier: reference.supplier } : {}),
+        },
+        ...(start ? { start } : {}),
+        ...(end ? { end } : {}),
+      }
+    } else {
+      return res.status(400).json({ error: "bookingID or accessCode + reference required" })
+    }
+
+    const settings = {
+      client: process.env.TGX_CLIENT,
+      context: process.env.TGX_CONTEXT,
+      timeout: 10000,
+      testMode: true,
+    }
+
+    const result = await readBookingTGX(criteria, settings)
+    return res.json(result)
+  } catch (err) {
+    next(err)
+  }
+}
+
