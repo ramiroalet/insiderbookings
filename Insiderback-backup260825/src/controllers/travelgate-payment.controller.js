@@ -5,6 +5,7 @@ import Stripe from "stripe"
 import { sendBookingEmail } from "../emailTemplates/booking-email.js"
 import models, { sequelize } from "../models/index.js"
 import { bookTGX, quoteTGX } from "../services/tgx.booking.service.js"
+import { normalizeTGXBookingID } from "../utils/normalizeBookingId.tgx.js"
 
 dotenv.config()
 
@@ -112,7 +113,7 @@ const getRoleFromReq = (req) => {
     sources.userRole ??
     sources.userRoleId
   const n = Number(raw)
-  return Number.isFinite(n) ? n : 1
+  return Number.isFinite(n) ? n : 0
 }
 
 const applyMarkup = (amount, pct) => {
@@ -148,22 +149,22 @@ export const createTravelgatePaymentIntent = async (req, res) => {
     } = req.body
 
     // ✅ Normalizar: aceptamos varios alias
-      const idRaw =
-        req.body.searchOptionRefId ||
-        req.body.optionRefId ||
-        req.body.quoteOptionRefId ||
-        req.body.rateKey ||
-        null
+    const idRaw =
+      req.body.searchOptionRefId ||
+      req.body.optionRefId ||
+      req.body.quoteOptionRefId ||
+      req.body.rateKey ||
+      null
 
-      if (!amount || !idRaw || !guestInfo) {
-        return badReq("MISSING_PARAMS", {
-          message:
-            "amount, searchOptionRefId (or optionRefId, quoteOptionRefId, rateKey), and guestInfo are required",
-          debug: {
-            hasAmount: Boolean(amount),
-            hasAnyOptionId: Boolean(idRaw),
-            hasGuestInfo: Boolean(guestInfo),
-          },
+    if (!amount || !idRaw || !guestInfo) {
+      return badReq("MISSING_PARAMS", {
+        message:
+          "amount, searchOptionRefId (or optionRefId, quoteOptionRefId, rateKey), and guestInfo are required",
+        debug: {
+          hasAmount: Boolean(amount),
+          hasAnyOptionId: Boolean(idRaw),
+          hasGuestInfo: Boolean(guestInfo),
+        },
       })
     }
 
@@ -531,6 +532,8 @@ export const confirmPaymentAndBook = async (req, res) => {
       throw bookErr;
     }
 
+    console.log(tgxBooking, "log de booking tgx");
+
     // Persist TGX references & price snapshot
     const ref = tgxBooking?.reference || {};
     const price = tgxBooking?.price || {};
@@ -541,15 +544,18 @@ export const confirmPaymentAndBook = async (req, res) => {
       throw new Error("Book returned without bookingID");
     }
 
+    // ⬇️ Normalizamos el bookingID de TGX antes de persistir
+    const normalizedRefId = normalizeTGXBookingID(ref.bookingID);
+
     await booking.update({
       status: tgxBooking?.status === "OK" ? "CONFIRMED" : "PENDING",
       payment_status: wantManualCapture ? booking.payment_status : "PAID",
-      external_ref: ref.bookingID,
+      external_ref: normalizedRefId, // ⬅️ normalizado
       booked_at: new Date(),
     });
 
     await booking.tgxMeta.update({
-      reference_booking_id: ref.bookingID,
+      reference_booking_id: normalizedRefId,            // ⬅️ normalizado
       reference_client:     ref.client || null,
       reference_supplier:   ref.supplier || null,
       reference_hotel:      ref.hotel || null,
@@ -558,7 +564,8 @@ export const confirmPaymentAndBook = async (req, res) => {
       price_net:            price?.net ?? null,
       price_gross:          price?.gross ?? null,
       cancellation_policy:  cancelPolicy || null,
-      access_code:          bookingData.access || booking.tgxMeta.access_code || null,
+      // Mantener el access_code previo si existe (no lo sobrescribimos)
+      access_code:          booking.tgxMeta?.access_code ?? null,
       hotel: tgxBooking?.hotel ? {
         hotelCode:   tgxBooking.hotel.hotelCode,
         hotelName:   tgxBooking.hotel.hotelName,
@@ -651,8 +658,8 @@ export const confirmPaymentAndBook = async (req, res) => {
     try {
       const fullBooking = await models.Booking.findByPk(booking.id, {
         include: [
-          { model: models.User },  // ⬅️ sin attributes
-          { model: models.Hotel }, // ⬅️ sin attributes
+          { model: models.User },
+          { model: models.Hotel },
         ],
       });
 
@@ -682,7 +689,7 @@ export const confirmPaymentAndBook = async (req, res) => {
 
       doc.fontSize(18).text("Booking Certificate", { align: "center" }).moveDown(0.5);
       doc.fontSize(12)
-        .text(`Booking ID: ${tgxBooking?.reference?.bookingID || booking.external_ref || booking.id}`)
+        .text(`Booking ID: ${normalizedRefId || booking.external_ref || booking.id}`)
         .text(`Status: ${tgxBooking?.status || booking.status}`)
         .text(`Date: ${new Date().toLocaleString()}`)
         .moveDown();
@@ -741,7 +748,7 @@ export const confirmPaymentAndBook = async (req, res) => {
           subject: `Booking confirmation • ${tgxHotel.name}`,
           html   : `
             <h2>Your booking is confirmed</h2>
-            <p><b>Booking ID:</b> ${tgxBooking?.reference?.bookingID || booking.external_ref || booking.id}</p>
+            <p><b>Booking ID:</b> ${normalizedRefId || booking.external_ref || booking.id}</p>
             <p><b>Guest:</b> ${booking.guest_name} &lt;${booking.guest_email}&gt;</p>
             <p><b>Hotel:</b> ${tgxHotel.name}</p>
             <p><b>Address:</b> ${tgxHotel.address || "-"}</p>
@@ -750,7 +757,7 @@ export const confirmPaymentAndBook = async (req, res) => {
           `,
           attachments: [
             {
-              filename: `BookingCertificate-${tgxBooking?.reference?.bookingID || booking.external_ref || booking.id}.pdf`,
+              filename: `BookingCertificate-${normalizedRefId || booking.external_ref || booking.id}.pdf`,
               content : pdfBuffer,
             },
           ],
@@ -773,7 +780,6 @@ export const confirmPaymentAndBook = async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 };
-
 
 
 /* ╔══════════════════════════════════════════════════════════════════════════╗
@@ -990,8 +996,8 @@ export const bookWithCard = async (req, res) => {
       auditTransactions: true,
     }
 
-      // ⚠️ Nunca loguees PAN/CVC
-      console.log("🎯 Creating TravelgateX booking (with card, guarantee). optionRefId:", tgxMeta.option_id)
+    // ⚠️ Nunca loguees PAN/CVC
+    console.log("🎯 Creating TravelgateX booking (with card, guarantee). optionRefId:", tgxMeta.option_id)
 
     const tgxBooking = await bookTGX(input, settings)
 
@@ -1002,7 +1008,7 @@ export const bookWithCard = async (req, res) => {
     await booking.update({
       status: tgxBooking?.status === "OK" ? "CONFIRMED" : "PENDING",
       payment_status: "UNPAID", // seguimos sin cobrar
-      external_ref: ref.bookingID || booking.external_ref,
+      external_ref: ref.bookingID ? normalizeTGXBookingID(ref.bookingID) : booking.external_ref, // ⬅️ normalizado
       booked_at: new Date(),
     }, { transaction: tx })
 
@@ -1022,8 +1028,8 @@ export const bookWithCard = async (req, res) => {
         hotelCode: tgxBooking.hotel.hotelCode,
         hotelName: tgxBooking.hotel.hotelName,
         boardCode: tgxBooking.hotel.boardCode,
-        start: tgxBooking.hotel.start,
-        end:   tgxBooking.hotel.end,
+        start:     tgxBooking.hotel.start,
+        end:       tgxBooking.hotel.end,
         bookingDate: tgxBooking.hotel.bookingDate || null,
       } : null,
       rooms: tgxBooking?.hotel?.rooms || null,

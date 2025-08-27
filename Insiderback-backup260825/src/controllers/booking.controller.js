@@ -409,7 +409,8 @@ export const getBookingById = async (req, res) => {
       paymentStatus    : String(booking.payment_status).toLowerCase(),
       discountCode     : booking.DiscountCode ?? null,
       meta,  // TGXMeta u OutsideMeta
-      addons
+      addons,
+      source: booking.source
     })
   } catch (err) {
     console.error("getBookingById:", err)
