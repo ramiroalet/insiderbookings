@@ -230,8 +230,10 @@ const canCancel = (b) => {
         /* ---------- Lista de reservas ---------- */
         <div className="space-y-8">
           {filtered.map((b) => {
-            const hotelName = b.hotel_name ?? b.hotelName ?? "Hotel"
-            const roomName  = b.room_name  ?? b.roomName  ?? null
+            const hotelName =
+              b.hotel_name ?? b.hotelName ?? b.meta?.hotel?.hotelName ?? "Hotel"
+            const location = b.location ?? b.meta?.hotel?.location ?? null
+            const roomName  = b.room_name ?? b.roomName ?? null
             const finished  = b.active === false
 
             return (
@@ -260,15 +262,17 @@ const canCancel = (b) => {
                         <h2 className="text-2xl font-bold mb-3 text-gray-900 truncate group-hover:text-red-600 transition-colors duration-200">
                           {hotelName}
                         </h2>
-                        <div className="flex items-center text-gray-600 mb-3">
-                          <MapPin
-                            size={16}
-                            className="mr-2 text-red-500 flex-shrink-0"
-                          />
-                          <span className="font-medium truncate">
-                            {b.location}
-                          </span>
-                        </div>
+                        {location && (
+                          <div className="flex items-center text-gray-600 mb-3">
+                            <MapPin
+                              size={16}
+                              className="mr-2 text-red-500 flex-shrink-0"
+                            />
+                            <span className="font-medium truncate">
+                              {location}
+                            </span>
+                          </div>
+                        )}
                         {roomName && (
                           <p className="text-gray-600 font-medium mb-3 truncate">
                             Room: {roomName}
@@ -432,7 +436,14 @@ const canCancel = (b) => {
 
             <p className="text-gray-700 mb-4">
               Are you sure you want to cancel your booking at{" "}
-              <span className="font-semibold">{cancelTarget.hotel_name ?? cancelTarget.hotelName ?? "this hotel"}</span>{" "}
+              <span className="font-semibold">
+                {
+                  cancelTarget.hotel_name ??
+                  cancelTarget.hotelName ??
+                  cancelTarget.meta?.hotel?.hotelName ??
+                  "this hotel"
+                }
+              </span>{" "}
               (check-in {formatDate(cancelTarget.checkIn)})?
             </p>
 
