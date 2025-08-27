@@ -1,14 +1,12 @@
-export function getMarkup(role, price) {
+export function getMarkup(role, _price) {
   const r = Number(role)
-  if (r === 1) {
-    const p = Number(price) || 0
-    if (p < 100) return 0.5
-    if (p < 200) return 0.4
-    return 0.3
+  const ROLE_MARKUP = {
+    0: 0.5, // guest
+    1: 0.2, // staff
+    2: 0.1, // influencer
+    3: 0.1, // corporate
+    4: 0.05, // agency
+    100: 0, // admin
   }
-  if (r === 2) return 0.2
-  if (r === 3) return 0.1
-  if (r === 4) return 0.1
-  if (r === 5) return 0.05
-  return 0
+  return ROLE_MARKUP[r] ?? 0
 }
