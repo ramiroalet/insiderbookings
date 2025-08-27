@@ -643,18 +643,17 @@ export const confirmPaymentAndBook = async (req, res) => {
     /* ─────────────────────────────────────────────────────────────
        Enviar mail con certificado PDF (sin attributes inválidos)
     ───────────────────────────────────────────────────────────── */
-    try {
-      const fullBooking = await models.Booking.findByPk(booking.id, {
-        include: [
-          { model: models.User },
-          { model: models.Hotel },
-        ],
-      });
+      try {
+        const fullBooking = await models.Booking.findByPk(booking.id, {
+          include: [
+            { model: models.User },
+            { model: models.Hotel },
+          ],
+        });
 
-      const h = fullBooking?.Hotel || null;
+        const h = fullBooking?.Hotel || null;
 
-      const tgxHotel =
-        h
+        const tgxHotel = h
           ? {
               name   : h.name || h.hotelName,
               address: [h.address, h.city, h.country].filter(Boolean).join(", "),
@@ -668,92 +667,24 @@ export const confirmPaymentAndBook = async (req, res) => {
                 }
               : { name: "Hotel", address: "", phone: "-" });
 
-      // PDF
-      const { default: PDFDocument } = await import("pdfkit");
-      const chunks = [];
-      const doc = new PDFDocument({ size: "A4", margin: 50 });
-      doc.on("data", (c) => chunks.push(c));
-      const pdfDone = new Promise((resolve) => doc.on("end", resolve));
-
-      doc.fontSize(18).text("Booking Certificate", { align: "center" }).moveDown(0.5);
-      doc.fontSize(12)
-        .text(`Booking ID: ${normalizedRefId || booking.external_ref || booking.id}`)
-        .text(`Status: ${tgxBooking?.status || booking.status}`)
-        .text(`Date: ${new Date().toLocaleString()}`)
-        .moveDown();
-
-      doc.fontSize(14).text("Guest", { underline: true }).moveDown(0.3);
-      doc.fontSize(12)
-        .text(`Name:  ${booking.guest_name}`)
-        .text(`Email: ${booking.guest_email}`)
-        .text(`Phone: ${booking.guest_phone || "-"}`)
-        .moveDown();
-
-      doc.fontSize(14).text("Hotel", { underline: true }).moveDown(0.3);
-      doc.fontSize(12)
-        .text(`Name:    ${tgxHotel.name}`)
-        .text(`Address: ${tgxHotel.address || "-"}`)
-        .text(`Phone:   ${tgxHotel.phone || "-"}`)
-        .moveDown();
-
-      doc.fontSize(14).text("Stay", { underline: true }).moveDown(0.3);
-      doc.fontSize(12)
-        .text(`Check-in:  ${booking.check_in}`)
-        .text(`Check-out: ${booking.check_out}`)
-        .text(`Guests:    ${Number(booking.adults || 1)} adult(s)${Number(booking.children||0)>0 ? `, ${booking.children} child(ren)` : ""}`)
-        .moveDown();
-
-      const paidTotal = Number(booking.gross_price);
-      doc.fontSize(14).text("Payment", { underline: true }).moveDown(0.3);
-      doc.fontSize(12)
-        .text(`Total:    ${booking.currency} ${paidTotal.toFixed(2)}`)
-        .text(`Provider: ${booking.payment_provider || "STRIPE"}`)
-        .text(`Intent:   ${booking.payment_intent_id || "-"}`)
-        .moveDown();
-
-      doc.moveDown(1).fontSize(10).text("This certificate confirms your reservation.", { align: "center" });
-
-      doc.end();
-      await pdfDone;
-      const pdfBuffer = Buffer.concat(chunks);
-
-      // Mail
-      const { default: nodemailer } = await import("nodemailer");
-      const host   = process.env.SMTP_HOST;
-      const port   = Number(process.env.SMTP_PORT || 587);
-      const user   = process.env.SMTP_USER;
-      const pass   = process.env.SMTP_PASS;
-      const secure = String(process.env.SMTP_SECURE || "").toLowerCase() === "true" || port === 465;
-
-      if (!host || !user || !pass) {
-        console.warn("⚠️ SMTP no configurado, se omite envío de e-mail (tgx).");
-      } else {
-        const transporter = nodemailer.createTransport({ host, port, secure, pool: true, auth: { user, pass } });
-
-        await transporter.sendMail({
-          from   : process.env.MAIL_FROM || "no-reply@insiderbookings.com",
-          to     : booking.guest_email,
-          subject: `Booking confirmation • ${tgxHotel.name}`,
-          html   : `
-            <h2>Your booking is confirmed</h2>
-            <p><b>Booking ID:</b> ${normalizedRefId || booking.external_ref || booking.id}</p>
-            <p><b>Guest:</b> ${booking.guest_name} &lt;${booking.guest_email}&gt;</p>
-            <p><b>Hotel:</b> ${tgxHotel.name}</p>
-            <p><b>Address:</b> ${tgxHotel.address || "-"}</p>
-            <p><b>Check-in:</b> ${booking.check_in} &nbsp;|&nbsp; <b>Check-out:</b> ${booking.check_out}</p>
-            <p><b>Total:</b> ${booking.currency} ${paidTotal.toFixed(2)}</p>
-          `,
-          attachments: [
-            {
-              filename: `BookingCertificate-${normalizedRefId || booking.external_ref || booking.id}.pdf`,
-              content : pdfBuffer,
-            },
-          ],
-        });
+        await sendBookingEmail(
+          {
+            id: booking.id,
+            bookingCode: normalizedRefId || booking.external_ref || booking.id,
+            guestName: booking.guest_name,
+            guests: { adults: booking.adults, children: booking.children },
+            roomsCount: booking.rooms || 1,
+            checkIn: booking.check_in,
+            checkOut: booking.check_out,
+            hotel: tgxHotel,
+            currency: booking.currency,
+            totals: { total: booking.gross_price },
+          },
+          booking.guest_email
+        );
+      } catch (mailErr) {
+        console.warn("⚠️ No se pudo enviar el mail de confirmación (tgx):", mailErr?.message || mailErr);
       }
-    } catch (mailErr) {
-      console.warn("⚠️ No se pudo enviar el mail de confirmación (tgx):", mailErr?.message || mailErr);
-    }
 
     return res.json({
       success: true,
