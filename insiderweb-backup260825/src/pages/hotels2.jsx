@@ -996,18 +996,82 @@ const HotelSearch = () => {
       </section>
 
       {/* FOOTER */}
-      <footer className="border-t border-gray-200 bg-gray-100 py-12">
-        <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
-          <div className="mb-4 text-2xl font-bold text-red-500">
-            insider<span className="text-gray-900">bookings</span>
+      <footer className="bg-black border-t border-gray-800">
+        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+          {/* Main footer content */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+            {/* Brand column */}
+            <div className="md:col-span-2">
+              <div className="text-3xl font-bold text-red-500 mb-4">
+                insider<span className="text-white">bookings</span>
+              </div>
+              <p className="text-gray-400 text-lg leading-relaxed mb-6 max-w-md">
+                Transforming the hospitality industry through innovative technology,
+                strategic partnerships, and unparalleled guest experiences.
+              </p>
+              <div className="flex space-x-4">
+                {["LinkedIn", "Twitter", "Instagram"].map((social) => (
+                  <a
+                    key={social}
+                    href="#"
+                    className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-gray-400 hover:bg-red-500 hover:text-white transition-all duration-300"
+                  >
+                    <span className="text-sm font-medium">{social[0]}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            {/* Quick links */}
+            <div>
+              <h4 className="text-white font-semibold mb-6">Solutions</h4>
+              <ul className="space-y-3">
+                {[
+                  "Revenue Optimization",
+                  "Guest Experience",
+                  "Analytics Platform",
+                  "Automation Suite",
+                ].map((link) => (
+                  <li key={link}>
+                    <a href="#" className="text-gray-400 hover:text-red-400 transition-colors">
+                      {link}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Support */}
+            <div>
+              <h4 className="text-white font-semibold mb-6">Support</h4>
+              <ul className="space-y-3">
+                {["Partner Portal", "Documentation", "24/7 Support", "Training"].map((link) => (
+                  <li key={link}>
+                    <a href="#" className="text-gray-400 hover:text-red-400 transition-colors">
+                      {link}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
-          <p className="mb-6 text-gray-600">© {new Date().getFullYear()} Insider Bookings. All rights reserved.</p>
-          <div className="flex justify-center space-x-6">
-            {["Terms of Service", "Privacy Policy", "Support"].map((link) => (
-              <a key={link} href="#" className="text-gray-600 transition-colors hover:text-red-500">
-                {link}
-              </a>
-            ))}
+
+          {/* Bottom bar */}
+          <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center">
+            <p className="text-gray-400 mb-4 md:mb-0">
+              © {new Date().getFullYear()} Insider Bookings. All rights reserved.
+            </p>
+            <div className="flex space-x-6">
+              {["Privacy Policy", "Terms of Service", "Cookie Policy"].map((link) => (
+                <a
+                  key={link}
+                  href="#"
+                  className="text-gray-400 hover:text-red-400 transition-colors text-sm"
+                >
+                  {link}
+                </a>
+              ))}
+            </div>
           </div>
         </div>
       </footer>
