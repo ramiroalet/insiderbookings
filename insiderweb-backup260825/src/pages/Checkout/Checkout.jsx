@@ -452,8 +452,8 @@ const Checkout = () => {
     quoteStatus,
     quoteError,
     quoteData,
-    searchOptionRefId,
-    quoteOptionRefId,
+    searchRateKey,
+    quoteRateKey,
     currency,
   } = useSelector((s) => s.booking)
 
@@ -486,8 +486,8 @@ const Checkout = () => {
       totalNights,
       quoteStatus,
       hasRateKey: selectedRoom?.rateKey,
-      rateKey: searchOptionRefId,
-      quoteOptionRefId,
+      rateKey: searchRateKey,
+      quoteRateKey,
       paymentType: selectedRoom?.paymentType,
       discount,
     })
@@ -501,8 +501,8 @@ const Checkout = () => {
     totalNights,
     quoteStatus,
     quoteData,
-    searchOptionRefId,
-    quoteOptionRefId,
+    searchRateKey,
+    quoteRateKey,
     discount,
   ])
 
@@ -594,8 +594,8 @@ const Checkout = () => {
 
     setCurrentStep("quote")
     try {
-      console.log("🔍 Starting Quote with rateKey:", searchOptionRefId)
-      await dispatch(quoteTravelgateRoom({ rateKey: searchOptionRefId }))
+      console.log("🔍 Starting Quote with rateKey:", searchRateKey)
+      await dispatch(quoteTravelgateRoom({ rateKey: searchRateKey }))
     } catch (error) {
       console.error("❌ Quote failed:", error)
     }
@@ -603,7 +603,7 @@ const Checkout = () => {
 
   const handleProceedToPayment = () => {
     // En TGX, necesitamos el rateKey de la SEARCH
-    if (source === "TGX" && !searchOptionRefId) {
+    if (source === "TGX" && !searchRateKey) {
       alert("Rate key not available. Please try again.")
       return
     }
@@ -1211,7 +1211,7 @@ const Checkout = () => {
                         onPaymentError={handlePaymentError}
                         amount={getFinalTotalAmount()}
                         currency={getCurrency()}
-                        rateKey={searchOptionRefId} // TGX usa rateKey; PARTNER lo ignora
+                        rateKey={searchRateKey} // TGX usa rateKey; PARTNER lo ignora
                         guestInfo={guestForm}
                         bookingData={{
                           ...paymentBookingData,
@@ -1229,7 +1229,7 @@ const Checkout = () => {
                       <GuaranteeForm
                         onSuccess={handlePaymentSuccess}
                         onError={setPaymentError}
-                        rateKey={searchOptionRefId}
+                        rateKey={searchRateKey}
                         guestInfo={guestForm}
                         bookingData={paymentBookingData}
                         discount={paymentBookingData.discount}
