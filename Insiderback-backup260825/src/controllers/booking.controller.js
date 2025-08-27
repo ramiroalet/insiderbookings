@@ -13,16 +13,15 @@ const diffDays = (from, to) =>
    Recibe una fila de Booking (snake_case en DB) y la
    convierte al formato camelCase que usa el FE.       */
 const mapStay = (row, source) => {
-  let hotel = row.Hotel ?? null
-  let room  = row.Room  ?? null
+  // Normalizar a objetos plain
+  let hotel = row.Hotel && typeof row.Hotel.toJSON === "function" ? row.Hotel.toJSON() : row.Hotel ?? null
+  let room  = row.Room  && typeof row.Room.toJSON  === "function" ? row.Room.toJSON()  : row.Room  ?? null
 
   if (source === "tgx" && row.tgxMeta) {
     const tgxHotel = row.tgxMeta?.hotel ?? {}
     const tgxRoom  = row.tgxMeta?.rooms?.[0] ?? {}
-    const hotelPlain = hotel && typeof hotel.toJSON === "function" ? hotel.toJSON() : hotel
-    const roomPlain  = room  && typeof room.toJSON  === "function" ? room.toJSON()  : room
-    hotel = { ...hotelPlain, ...tgxHotel }
-    room  = { ...roomPlain,  ...tgxRoom  }
+    hotel = { ...hotel, ...tgxHotel }
+    room  = { ...room,  ...tgxRoom  }
   }
 
   // Aceptar snake_case o camelCase por si viene mezclado
@@ -64,6 +63,16 @@ const mapStay = (row, source) => {
     /* ─────────── guests / total ───── */
     guests : (row.adults ?? 0) + (row.children ?? 0),
     total  : Number.parseFloat(row.gross_price ?? row.total ?? 0),
+
+    /* ─────────── guest info ────────── */
+    guestName     : row.guest_name      ?? row.guestName      ?? null,
+    guestLastName : row.guest_last_name ?? row.guestLastName ?? null,
+    guestEmail    : row.guest_email     ?? row.guestEmail     ?? null,
+    guestPhone    : row.guest_phone     ?? row.guestPhone     ?? null,
+
+    /* ─────────── raw hotel/room ────── */
+    hotel,
+    room,
 
     outside: !!row.outside,
     active : row.active ?? true,
@@ -167,11 +176,21 @@ export const getBookingsUnified = async (req, res) => {
       include: [
         {
           model     : models.Hotel,
-          attributes: ["id","name","location","image","city","country","rating"]
+          attributes: [
+            "id",
+            "name",
+            "location",
+            "image",
+            "city",
+            "country",
+            "rating",
+            "address",
+            "phone",
+          ],
         },
         {
           model     : models.Room,
-          attributes: ["name"]
+          attributes: ["id", "name", "room_number", "image", "price", "beds", "capacity"],
         },
         {
           model : models.TGXMeta,
