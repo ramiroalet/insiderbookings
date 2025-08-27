@@ -457,6 +457,8 @@ const Checkout = () => {
     currency,
   } = useSelector((s) => s.booking)
 
+  const { user, isLoggedIn } = useSelector((s) => s.auth)
+
   // ⬇️ Discount from global state
   const discount = useSelector((s) => s.discount) // { active, percentage, specialDiscountPrice, code, validatedBy? }
 
@@ -505,6 +507,21 @@ const Checkout = () => {
     quoteRateKey,
     discount,
   ])
+
+  useEffect(() => {
+    if (isLoggedIn && user && !guestForm.fullName && !guestForm.email) {
+      const { name, email, phone } = user
+      setGuestForm((prev) => ({
+        ...prev,
+        fullName: name || "",
+        email: email || "",
+        phone: phone || prev.phone,
+      }))
+      dispatch(
+        setGuestInfo({ fullName: name || "", email: email || "", phone: phone || "" })
+      )
+    }
+  }, [isLoggedIn, user])
 
   // Redirect if no selection
   useEffect(() => {
