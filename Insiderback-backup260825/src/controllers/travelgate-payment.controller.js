@@ -148,20 +148,22 @@ export const createTravelgatePaymentIntent = async (req, res) => {
     } = req.body
 
     // ✅ Normalizar: aceptamos varios alias
-    const idRaw =
-      req.body.searchOptionRefId ||
-      req.body.optionRefId ||
-      req.body.quoteOptionRefId ||
-      null
+      const idRaw =
+        req.body.searchOptionRefId ||
+        req.body.optionRefId ||
+        req.body.quoteOptionRefId ||
+        req.body.rateKey ||
+        null
 
-    if (!amount || !idRaw || !guestInfo) {
-      return badReq("MISSING_PARAMS", {
-        message: "amount, searchOptionRefId (or optionRefId), and guestInfo are required",
-        debug: {
-          hasAmount: Boolean(amount),
-          hasAnyOptionId: Boolean(idRaw),
-          hasGuestInfo: Boolean(guestInfo),
-        },
+      if (!amount || !idRaw || !guestInfo) {
+        return badReq("MISSING_PARAMS", {
+          message:
+            "amount, searchOptionRefId (or optionRefId, quoteOptionRefId, rateKey), and guestInfo are required",
+          debug: {
+            hasAmount: Boolean(amount),
+            hasAnyOptionId: Boolean(idRaw),
+            hasGuestInfo: Boolean(guestInfo),
+          },
       })
     }
 
