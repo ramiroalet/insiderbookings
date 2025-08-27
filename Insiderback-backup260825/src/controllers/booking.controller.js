@@ -12,8 +12,9 @@ const diffDays = (from, to) =>
 /* ───────────── Helper – flattener ────────────────
    Recibe una fila de Booking (snake_case en DB) y la
    convierte al formato camelCase que usa el FE.       */
-const mapStay = (row, source) => {
-  const hotel = row.Hotel ?? null
+const mapStay = (row, source, tgxMeta = null) => {
+  const hotel    = row.Hotel ?? null
+  const tgxHotel = tgxMeta?.hotel ?? null
 
   // Aceptar snake_case o camelCase por si viene mezclado
   const checkIn  = row.check_in  ?? row.checkIn  ?? null
@@ -32,11 +33,15 @@ const mapStay = (row, source) => {
 
     /* ─────────── hotel ─────────── */
     hotel_id   : row.hotel_id ?? null,
-    hotel_name : hotel?.name ?? null,
+    hotel_name : hotel?.name ?? tgxHotel?.hotelName ?? null,
     location   : hotel
       ? `${hotel.city || hotel.location || ""}, ${hotel.country || ""}`.trim().replace(/, $/, "")
-      : null,
-    image      : hotel?.image  ?? null,
+      : tgxHotel?.city ?? null,
+    image      : hotel?.image
+      ?? tgxHotel?.image
+      ?? tgxHotel?.images?.[0]?.url
+      ?? tgxHotel?.images?.[0]
+      ?? null,
     rating     : hotel?.rating ?? null,
 
     /* ─────────── stay info ─────────── */
@@ -162,6 +167,11 @@ export const getBookingsUnified = async (req, res) => {
         {
           model     : models.Room,
           attributes: ["name"]
+        },
+        {
+          model     : models.TGXMeta,
+          as        : "tgxMeta",
+          attributes: ["hotel"]
         }
       ],
       order : [["check_in","DESC"]],
@@ -173,9 +183,12 @@ export const getBookingsUnified = async (req, res) => {
     const merged = rows
       .map(r => {
         const obj = r.toJSON()
-        // tipo: 'outside' si viene de OUTSIDE; caso contrario 'insider'
-        const channel = obj.source === "OUTSIDE" ? "outside" : "insider"
-        return mapStay(obj, channel)
+        // tipo: según source: OUTSIDE | TGX | insider
+        const channel =
+          obj.source === "OUTSIDE" ? "outside" :
+          obj.source === "TGX"     ? "tgx"     :
+          "insider"
+        return mapStay(obj, channel, obj.tgxMeta)
       })
       .sort((a, b) => new Date(b.checkIn) - new Date(a.checkIn))
 
