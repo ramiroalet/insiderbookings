@@ -121,20 +121,43 @@ export default function MyStay() {
     Hotel,
     Room,
     addons = [],
+    meta = {},
   } = booking
 
-  const hotelName = hotel_name ?? Hotel?.name ?? booking.hotel?.name ?? "—"
-  const hotelId = hotel_id ?? Hotel?.id ?? booking.hotel?.id ?? null
-  const hotelAddr = Hotel?.address ?? booking.hotel?.address ?? "-"
-  const hotelCity = Hotel?.city ?? booking.hotel?.city ?? "-"
-  const hotelPhone = Hotel?.phone ?? booking.hotel?.phone ?? "-"
-  const roomType = room_type ?? Room?.name ?? booking.room_type ?? "—"
-  const roomNumber = room_number ?? Room?.number ?? booking.room_number ?? "—"
+  const hotelName =
+    hotel_name ??
+    Hotel?.name ??
+    booking.hotel?.name ??
+    meta.hotel?.name ??
+    "—"
+  const hotelId =
+    hotel_id ?? Hotel?.id ?? booking.hotel?.id ?? meta.hotel?.id ?? null
+  const hotelAddr =
+    Hotel?.address ??
+    booking.hotel?.address ??
+    meta.hotel?.address ??
+    "-"
+  const hotelCity =
+    Hotel?.city ?? booking.hotel?.city ?? meta.hotel?.city ?? "-"
+  const hotelPhone =
+    Hotel?.phone ?? booking.hotel?.phone ?? meta.hotel?.phone ?? "-"
+  const roomType =
+    room_type ??
+    Room?.name ??
+    booking.room_type ??
+    meta.rooms?.[0]?.name ??
+    "—"
+  const roomNumber =
+    room_number ??
+    Room?.number ??
+    booking.room_number ??
+    meta.rooms?.[0]?.number ??
+    "—"
   const primaryGuest = guestName && guestLastName ? `${guestName} ${guestLastName}` : (booking.user?.name ?? "—")
   const contactEmail = guestEmail ?? booking.user?.email ?? "-"
   const contactPhone = guestPhone ?? "-"
   const nights = diffDays(checkIn, checkOut)
-  const ratingVal = Number(Hotel?.rating || booking.hotel?.rating) || 0
+  const ratingVal = Number(Hotel?.rating || booking.hotel?.rating || meta.hotel?.rating) || 0
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 py-8 px-6 max-w-7xl mx-auto pb-20">
