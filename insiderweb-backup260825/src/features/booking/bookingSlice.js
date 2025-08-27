@@ -29,7 +29,7 @@ export const quoteTravelgateRoom = createAsyncThunk(
       console.log("✅ Quote response:", data)
       return {
         quote: data,
-        quoteOptionRefId: data?.optionRefId || null,
+        quoteRateKey: data?.rateKey || null,
       }
     } catch (err) {
       console.error("❌ Quote error:", err)
@@ -229,8 +229,8 @@ const initialState = {
   currency: "EUR",
 
   /* TravelgateX specific states */
-  searchOptionRefId: null,      // optionRefId devuelto por la SEARCH
-  quoteOptionRefId: null,       // optionRefId devuelto por la QUOTE
+  searchRateKey: null,          // rateKey devuelto por la SEARCH
+  quoteRateKey: null,           // rateKey devuelto por la QUOTE
   quoteStatus: "idle", // idle, loading, succeeded, failed
   quoteError: null,
   quoteData: null,
@@ -328,10 +328,10 @@ const bookingSlice = createSlice({
       // Room seleccionada (conservamos todo lo que venga)
       state.selectedRoom = room ? { ...room } : null
       state.roomId = room?.id ?? null
-      // optionRefId de la SEARCH (rateKey en nuestro mapeo)
-      state.searchOptionRefId = room?.optionRefId || room?.rateKey || null
+      // rateKey de la SEARCH
+      state.searchRateKey = room?.rateKey || room?.optionRefId || null
       // resetear info de quote previa
-      state.quoteOptionRefId = null
+      state.quoteRateKey = null
 
       // Normalizar hotel mostrado en checkout
       const normalizedHotel = hotel
@@ -484,7 +484,7 @@ const bookingSlice = createSlice({
       .addCase(quoteTravelgateRoom.fulfilled, (s, a) => {
         s.quoteStatus = "succeeded"
         s.quoteData = a.payload.quote
-        s.quoteOptionRefId = a.payload.quoteOptionRefId
+        s.quoteRateKey = a.payload.quoteRateKey
         console.log("✅ Quote data saved to Redux:", a.payload.quote)
       })
       .addCase(quoteTravelgateRoom.rejected, (s, a) => {
