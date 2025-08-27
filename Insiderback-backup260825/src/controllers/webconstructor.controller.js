@@ -31,6 +31,7 @@ const accountDTO = (acc) => ({
 
 /* --- LOGIN / ME --- */
 export async function wcLogin(req, res) {
+    console.log("login")
     try {
         const { email, password } = req.body || {}
         if (!email || !password) return res.status(400).json({ error: 'Email & password required' })

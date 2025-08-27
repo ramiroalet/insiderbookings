@@ -517,6 +517,7 @@ export const getMetadata = async (req, res, next) => {
 
 /** POST /api/tgx/quote */
 export const quote = async (req, res, next) => {
+  console.log(req.body, "bod")
   try {
     const { rateKey } = req.body
     if (!rateKey) return res.status(400).json({ error: "rateKey required" })
