@@ -4,6 +4,7 @@ import { useSelector } from "react-redux"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import axios from "axios"
 import { ArrowLeft, CalendarDays, Info, Gift, MapPin, Phone, Star, User, Home } from "lucide-react"
+import { getTGXBooking } from "../../utils/Api"
 
 const API_URL = import.meta.env.VITE_API_URL
 const oneDayMs = 86_400_000
@@ -39,6 +40,8 @@ export default function MyStay() {
   const [booking, setBooking] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [tgxLoading, setTgxLoading] = useState(false)
+  const [tgxError, setTgxError] = useState(null)
 
   const paramId = search.get("id")
   const paramType = search.get("type")
@@ -57,7 +60,29 @@ export default function MyStay() {
         const { data } = await axios.get(`${API_URL}${endpoint}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         })
-        setBooking(data)
+
+        let merged = data
+        if (data && (data.source === "tgx" || data.tgxHotel)) {
+          try {
+            setTgxLoading(true)
+            const tgx = await getTGXBooking(data.bookingConfirmation, token)
+            const { holder, hotel, rooms, cancelPolicy } = tgx || {}
+            merged = {
+              ...data,
+              holder: holder || data.holder,
+              hotel: hotel || data.hotel,
+              room: rooms?.[0] || data.room,
+              rooms: rooms || data.rooms,
+              cancelPolicy: cancelPolicy || data.cancelPolicy,
+            }
+          } catch (err) {
+            console.error(err)
+            setTgxError("Unable to load reservation details.")
+          } finally {
+            setTgxLoading(false)
+          }
+        }
+        setBooking(merged)
       } catch (e) {
         console.error(e)
         setError("Unable to load your reservation.")
@@ -67,7 +92,7 @@ export default function MyStay() {
     })()
   }, [endpoint, token, paramId])
 
-  if (loading) {
+  if (loading || tgxLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center text-gray-600 bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/50">
@@ -81,7 +106,7 @@ export default function MyStay() {
     )
   }
 
-  if (error || !booking) {
+  if (error || tgxError || !booking) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center p-6">
         <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50 p-8 max-w-md w-full text-center">
@@ -89,7 +114,7 @@ export default function MyStay() {
             <Info size={32} className="text-red-500" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Reservation Not Found</h2>
-          <p className="text-gray-600 mb-6 leading-relaxed">{error || "No reservation found."}</p>
+          <p className="text-gray-600 mb-6 leading-relaxed">{error || tgxError || "No reservation found."}</p>
           <button
             onClick={() => navigate("/bookings")}
             style={iosStyle}
