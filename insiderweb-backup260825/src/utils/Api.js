@@ -114,6 +114,15 @@ export const getBookingById = async (bookingId, token) => {
   return data
 }
 
+export const getTGXBooking = async (bookingID, token) => {
+  const { data } = await api.post(
+    "/tgx/booking-read",
+    { bookingID },
+    { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+  )
+  return data?.bookings?.[0]
+}
+
 export const getHotelRooms = async (hotelId, token) => {
   const { data } = await api.get(`/hotels/${hotelId}/rooms/`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
