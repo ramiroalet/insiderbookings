@@ -722,19 +722,17 @@ export const readBooking = async (req, res, next) => {
   try {
     const {
       bookingID,
-      accessCode,         // opcional (lo usamos si lo mandan para content)
+      accessCode,         // opcional (si viene, lo pasamos a fetchHotels)
       reference = {},     // { client?, supplier?, hotel? }
-      hotelCode,          // alias
+      hotelCode,          // alias (no lo usamos para content; el real viene del reading)
       hotel,              // alias
       currency,           // opcional
-      language,           // opcional (NO lo pasamos al criteria de hotels)
+      language,           // opcional para bookingRead (NO para hotels)
       start,
       end,
     } = req.body || {}
 
-   
-
-    // --- Validaciones de entrada: ID, REFS o DATES ---
+    // --- Validaciones mínimas: ID, REFS o DATES ---
     const hasId    = typeof bookingID === "string" && bookingID.trim().length > 0
     const hasRefs  = !!accessCode && (reference.client || reference.supplier)
     const hasDates = !!accessCode && !!start && !!end
@@ -744,7 +742,7 @@ export const readBooking = async (req, res, next) => {
       })
     }
 
-    // --- Criteria para booking read (ID/REFS/DATES). El service ya sabe normalizar. ---
+    // --- Criteria que entiende el service de booking read ---
     const criteria = hasId
       ? { bookingID: bookingID.trim() }
       : {
@@ -757,12 +755,11 @@ export const readBooking = async (req, res, next) => {
             },
             ...(hotelCode ? { hotelCode: String(hotelCode) } : (hotel ? { hotel: String(hotel) } : {})),
             ...(currency  ? { currency:  String(currency).toUpperCase() } : {}),
-            ...(language  ? { language } : {}), // OK para bookingRead.service
+            ...(language  ? { language } : {}), // OK aquí
           } : {}),
           ...(hasDates ? { accessCode: String(accessCode), start, end, ...(language ? { language } : {}) } : {}),
         }
 
-    // --- Settings TGX coherentes con el resto de tus services ---
     const settings = {
       client:   process.env.TGX_CLIENT,
       context:  process.env.TGX_CONTEXT,
@@ -770,38 +767,41 @@ export const readBooking = async (req, res, next) => {
       testMode: process.env.NODE_ENV !== "production",
     }
 
-    // 1) Leer la(s) reserva(s)
+    // 1) Leer la/s reserva/s
     const read = await readBookingTGX(criteria, settings)
-
-    // 2) Enriquecer con content de hotel usando fetchHotels (sin language en criteria)
     const bookings = Array.isArray(read.bookings) ? read.bookings : []
 
-    // Recolectar hotelCodes únicos desde la respuesta
+    if (bookings.length === 0) {
+      return res.json(read)
+    }
+
+    // 2) Recolectar hotelCodes **desde la respuesta de TGX** (no del body)
     const uniqueCodes = [
       ...new Set(
-        bookings.map(b => String(b?.hotel?.hotelCode || "").trim()).filter(Boolean)
+        bookings
+          .map(b => String(b?.hotel?.hotelCode || "").trim())
+          .filter(Boolean)
       )
     ]
 
-    // Si no hay códigos, devolvemos tal cual
     if (uniqueCodes.length === 0) {
+      // No hay códigos para enriquecer
       return res.json(read)
     }
- console.log(uniqueCodes, "code")
-    // Si te pasan accessCode en el body, úsalo para content; si no, omítelo (tu service lo acepta)
-      const Hotelcriteria = {
+
+    // 3) Traer content de hotel con tu service (¡array plano! y sin language)
+    const hotelcriteria = {
             access: 2,                    // número
             hotelCodes: uniqueCodes,   // string[]
             maxSize: 1
         }
 
-        const page = await fetchHotels(Hotelcriteria, "")
+        const page = await fetchHotels(hotelcriteria, "")
         const edge = page?.edges?.[0]
         const hotelData = edge?.node?.hotelData
 
-    // Mezclar detalles
 
-    console.log("hotel", hotelData)
+    // 5) Mezclar detalles de hotel en cada booking
     const enriched = {
       ...read,
       hotelData
