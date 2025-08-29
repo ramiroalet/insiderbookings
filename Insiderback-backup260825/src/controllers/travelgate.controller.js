@@ -109,6 +109,23 @@ export const search = async (req, res, next) => {
       return res.status(400).json({ error: "Missing required params" })
     }
 
+
+    /* ──────────────────────────────────────────────
+       Markup por rol (definido en código)
+    ────────────────────────────────────────────── */
+    // Ajustá según negocio:
+    // 1: guest, 2: staff, 3: influencer, 4: corporate/partner, 5: agency, 99: admin
+    const ROLE_MARKUP = {
+      1: 0.50, // guest → +50%
+      2: 0.10, // staff → +20%
+      3: 0.10, // influencer → +10%
+      4: 0.05, // corporate → +10%
+      5: 0.05, // agency   → +5%
+
+      99: 0.00 // admin → +0%
+    }
+
+
     const moneyRound = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100
 
     const getRoleFromReq = () => {
