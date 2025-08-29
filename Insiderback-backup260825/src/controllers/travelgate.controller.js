@@ -13,7 +13,11 @@ import { fetchRoomsTGX, mapRooms, fetchAllRooms } from "../services/tgx.rooms.se
 import { fetchBoardsTGX, mapBoards, fetchAllBoards } from "../services/tgx.boards.service.js"
 import { fetchMetadataTGX, mapMetadata } from "../services/tgx.metadata.service.js"
 import models from "../models/index.js"
+
+import { getRoleFromReq } from "../helpers/getRoleFromReq.js"
+
 import { getMarkup } from "../utils/markup.js"
+
 
 function parseOccupancies(raw = "1|0") {
   const [adultsStr = "1", kidsStr = "0"] = raw.split("|")
@@ -111,6 +115,12 @@ export const search = async (req, res, next) => {
 
     const moneyRound = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100
 
+
+    const roleNum = getRoleFromReq(req)
+    const rolePct = Object.prototype.hasOwnProperty.call(ROLE_MARKUP, roleNum)
+      ? ROLE_MARKUP[roleNum]
+      : ROLE_MARKUP[1] // fallback guest
+
     const getRoleFromReq = () => {
       const sources = {
         query: req.query.user_role,
@@ -130,6 +140,7 @@ export const search = async (req, res, next) => {
     }
 
     const roleNum = getRoleFromReq()
+
 
     const applyMarkup = (amount, pct) => {
       const n = Number(amount)
