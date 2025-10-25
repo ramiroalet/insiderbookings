@@ -199,10 +199,10 @@ export const getInfluencerStats = async (req, res) => {
   try {
     // En producción, obtén estos datos desde req.user
     const userId = 5
-    const role = 2 // 2 = influencer
+    const role = 3 // 3 = influencer
 
     if (!userId) return res.status(401).json({ error: "Unauthorized" })
-    if (role !== 2) return res.status(403).json({ error: "Only influencers can access this endpoint" })
+    if (role !== 3) return res.status(403).json({ error: "Only influencers can access this endpoint" })
 
     // 1) Traer códigos del influencer
     const codes = await models.DiscountCode.findAll({
@@ -299,9 +299,9 @@ export const getInfluencerStats = async (req, res) => {
 }
 
 const ROLE_MAP = {
-  INFLUENCER: { code: 2, label: "Influencer" },
-  CORPORATE : { code: 3, label: "Corporate"  },
-  AGENCY    : { code: 4, label: "Agency"     },
+  INFLUENCER: { code: 3, label: "Influencer" },
+  CORPORATE : { code: 4, label: "Corporate"  },
+  AGENCY    : { code: 5, label: "Agency"     },
 }
 
 const isEmail = (s = "") =>
@@ -313,7 +313,7 @@ export const requestPartnerInfo = async (req, res) => {
   try {
     const {
       requestedRoleKey,   // "INFLUENCER" | "CORPORATE" | "AGENCY"
-      requestedRole,      // 2 | 3 | 4  (opcional; se valida contra el key)
+      requestedRole,      // 3 | 4 | 5  (opcional; se valida contra el key)
       userId = null,
       name = "",
       email = "",
